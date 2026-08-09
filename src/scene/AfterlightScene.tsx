@@ -141,7 +141,7 @@ function Asset({ assetId, scale = 1, outlineRole, ...props }: { assetId: AssetKe
   return <group scale={scale} {...props}><primitive object={clone} /></group>
 }
 
-function RiggedAsset({ assetId, motion, active = true, ...props }: { assetId: 'lin' | 'jo' | 'husk' | 'stalker'; motion: 'work' | 'signal' | 'point' | 'shamble' | 'prowl'; active?: boolean } & JSX.IntrinsicElements['group']) {
+function RiggedAsset({ assetId, motion, active = true, ...props }: { assetId: 'lin' | 'jo' | 'husk' | 'stalker'; motion: 'walk' | 'work' | 'signal' | 'point' | 'shamble' | 'prowl'; active?: boolean } & JSX.IntrinsicElements['group']) {
   const gltf = useGLTF(MODEL[assetId])
   const clone = useMemo(() => {
     const next = gltf.scene.clone(true)
@@ -156,6 +156,7 @@ function RiggedAsset({ assetId, motion, active = true, ...props }: { assetId: 'l
   }, [gltf.scene])
   const root = useRef<THREE.Group>(null)
   const rig = useRef<{ armL?: THREE.Object3D; armR?: THREE.Object3D; legL?: THREE.Object3D; legR?: THREE.Object3D; rest: Record<string, THREE.Euler> } | null>(null)
+  const reduceMotion = useMemo(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches, [])
 
   useEffect(() => {
     const nodes = {
@@ -168,15 +169,15 @@ function RiggedAsset({ assetId, motion, active = true, ...props }: { assetId: 'l
   useFrame(({ clock }) => {
     if (!root.current) return
     const t = clock.elapsedTime
-    const speed = motion === 'prowl' ? 7 : motion === 'shamble' ? 3.2 : motion === 'signal' ? 5.4 : motion === 'work' ? 5.8 : 4.2
+    const speed = motion === 'prowl' ? 7 : motion === 'walk' ? 7.4 : motion === 'shamble' ? 3.2 : motion === 'signal' ? 5.4 : motion === 'work' ? 5.8 : 4.2
     const cycle = Math.sin(t * speed)
-    const activeAmount = active ? 1 : 0
-    const bob = motion === 'prowl' ? 0.038 : motion === 'shamble' ? 0.012 : motion === 'work' ? 0.014 : 0.018
+    const activeAmount = active && !(reduceMotion && motion === 'walk') ? 1 : 0
+    const bob = motion === 'prowl' ? 0.038 : motion === 'walk' ? 0.026 : motion === 'shamble' ? 0.012 : motion === 'work' ? 0.014 : 0.018
 
     // The inner group owns performance motion. The outer group below owns world
     // placement, so a bob never erases the authored ground height of an actor.
     root.current.position.set(0, Math.abs(cycle) * bob * activeAmount, 0)
-    root.current.rotation.x = activeAmount * (motion === 'prowl' ? 0.16 : motion === 'shamble' ? 0.09 : motion === 'work' ? -0.045 : 0)
+    root.current.rotation.x = activeAmount * (motion === 'prowl' ? 0.16 : motion === 'walk' ? -0.035 : motion === 'shamble' ? 0.09 : motion === 'work' ? -0.045 : 0)
     root.current.rotation.z = activeAmount * (motion === 'signal' ? Math.sin(t * 2.7) * 0.035 : motion === 'shamble' ? cycle * 0.018 : 0)
 
     const current = rig.current
@@ -189,6 +190,7 @@ function RiggedAsset({ assetId, motion, active = true, ...props }: { assetId: 'l
       let zDelta = 0
       if (active) {
         if (motion === 'prowl') xDelta = cycle * 0.46 * sign
+        if (motion === 'walk') xDelta = cycle * (key.startsWith('arm') ? -0.34 : 0.44) * sign * activeAmount
         if (motion === 'shamble') xDelta = cycle * (key.startsWith('arm') ? 0.20 : 0.30) * sign
         if (motion === 'work') xDelta = cycle * (key.startsWith('arm') ? 0.40 : 0.08) * sign
         if (motion === 'signal') xDelta = cycle * 0.10 * sign
@@ -282,6 +284,7 @@ const CAMERA_BY_PHASE: Record<GameSnapshot['phase'], { target: [number, number, 
   'rescue-guide': { target: [-2.72, 0.58, -2.48], zoom: 88, offset: [-7, 9, 6] },
   rescuing: { target: [-2.76, 0.60, -2.52], zoom: 92, offset: [-7, 9, 6] },
   'assign-guide': { target: [-1.70, 0.50, -0.02], zoom: 90, offset: [7.5, 8.6, 9.5] },
+  assigning: { target: [-2.10, 0.50, -0.72], zoom: 91, offset: [7.5, 8.6, 9.5] },
   'production-proof': { target: [-1.02, 0.5, -0.22], zoom: 94, offset: [7.5, 8.2, 9.5] },
   'repair-guide': { target: [0, 0.44, 3.18], zoom: 88, offset: [9.5, 8.2, 11.5] },
   dusk: { target: [0, 0.38, 0.62], zoom: 76, offset: [9.5, 8.8, 11.5] },
@@ -612,15 +615,82 @@ function Enemy({ index, kind, game }: { index: number; kind: 'husk' | 'stalker';
   return <group ref={group} visible={game.phase === 'defense'}><RiggedAsset assetId={kind} motion={kind === 'stalker' ? 'prowl' : 'shamble'} scale={kind === 'stalker' ? 0.46 : 0.42} /></group>
 }
 
+const ASSIGN_PATH: ReadonlyArray<readonly [number, number, number]> = [
+  [-0.25, 0.38, 1.15],
+  [-0.55, 0.40, 0.75],
+  [-0.98, 0.44, 0.34],
+  [-1.50, 0.48, 0.00],
+]
+
+const ASSIGN_SEGMENT_LENGTHS = ASSIGN_PATH.slice(1).map((point, index) => {
+  const previous = ASSIGN_PATH[index]
+  return Math.hypot(point[0] - previous[0], point[2] - previous[2])
+})
+const ASSIGN_PATH_LENGTH = ASSIGN_SEGMENT_LENGTHS.reduce((sum, length) => sum + length, 0)
+
+function easeInOut(value: number) {
+  const t = THREE.MathUtils.clamp(value, 0, 1)
+  return t * t * (3 - 2 * t)
+}
+
+function lerpAngle(from: number, to: number, amount: number) {
+  const delta = Math.atan2(Math.sin(to - from), Math.cos(to - from))
+  return from + delta * amount
+}
+
+function sampleAssignPath(progress: number) {
+  let distance = THREE.MathUtils.clamp(progress, 0, 1) * ASSIGN_PATH_LENGTH
+  for (let index = 0; index < ASSIGN_SEGMENT_LENGTHS.length; index += 1) {
+    const length = ASSIGN_SEGMENT_LENGTHS[index]
+    if (distance <= length || index === ASSIGN_SEGMENT_LENGTHS.length - 1) {
+      const amount = THREE.MathUtils.clamp(distance / length, 0, 1)
+      const from = ASSIGN_PATH[index]
+      const to = ASSIGN_PATH[index + 1]
+      return {
+        position: [
+          THREE.MathUtils.lerp(from[0], to[0], amount),
+          THREE.MathUtils.lerp(from[1], to[1], amount),
+          THREE.MathUtils.lerp(from[2], to[2], amount),
+        ] as [number, number, number],
+        rotation: Math.atan2(to[0] - from[0], to[2] - from[2]),
+      }
+    }
+    distance -= length
+  }
+  return { position: [...ASSIGN_PATH[ASSIGN_PATH.length - 1]] as [number, number, number], rotation: 0.8 }
+}
+
+function assignmentPose(progress: number) {
+  const turnEnd = 0.115
+  const walkEnd = 0.865
+  const firstHeading = sampleAssignPath(0).rotation
+  const finalHeading = sampleAssignPath(0.999).rotation
+  if (progress <= turnEnd) {
+    return {
+      position: [...ASSIGN_PATH[0]] as [number, number, number],
+      rotation: lerpAngle(2.2, firstHeading, easeInOut(progress / turnEnd)),
+    }
+  }
+  if (progress < walkEnd) {
+    const travel = easeInOut((progress - turnEnd) / (walkEnd - turnEnd))
+    return sampleAssignPath(travel)
+  }
+  return {
+    position: [...ASSIGN_PATH[ASSIGN_PATH.length - 1]] as [number, number, number],
+    rotation: lerpAngle(finalHeading, 0.8, easeInOut((progress - walkEnd) / (1 - walkEnd))),
+  }
+}
+
 function District({ game, quality, guideBeat }: { game: GameSnapshot; quality: QualityConfig; guideBeat: number }) {
   const powered = game.assigned || ['repair-guide', 'dusk', 'defense', 'slice-win', 'slice-fail'].includes(game.phase)
   const overdrive = game.overdriveUntil > game.defenseElapsed
   const night = ['dusk', 'defense', 'slice-win', 'slice-fail'].includes(game.phase)
-  const productionVisible = ['assign-guide', 'production-proof', 'repair-guide', 'dusk', 'defense', 'slice-win', 'slice-fail'].includes(game.phase)
+  const productionVisible = ['assign-guide', 'assigning', 'production-proof', 'repair-guide', 'dusk', 'defense', 'slice-win', 'slice-fail'].includes(game.phase)
   const defenseVisible = ['repair-guide', 'dusk', 'defense', 'slice-win', 'slice-fail'].includes(game.phase)
   const rescueShot = game.phase === 'rescue-guide' || game.phase === 'rescuing'
   const linEmerging = game.phase === 'rescuing' && game.rescueProgress > 0.72
   const showLin = game.rescued || linEmerging
+  const linAssignmentPose = assignmentPose(game.assignmentProgress)
 
   return (
     <>
@@ -640,7 +710,7 @@ function District({ game, quality, guideBeat }: { game: GameSnapshot; quality: Q
           <PoweredLine active={powered} overdrive={overdrive} />
           <Asset assetId="workshop" position={[-2.72, 0.48, -0.92]} scale={0.74} />
           <Asset assetId="generator" position={[0, 0.32, -2.12]} scale={1.08} />
-          <Asset assetId="workbench" outlineRole={game.phase === 'assign-guide' || game.phase === 'production-proof' ? 'target' : undefined} position={[-2.30, 0.48, 0.20]} rotation={[0, 0.35, 0]} scale={0.88} />
+          <Asset assetId="workbench" outlineRole={game.phase === 'assign-guide' || game.phase === 'assigning' || game.phase === 'production-proof' ? 'target' : undefined} position={[-2.30, 0.48, 0.20]} rotation={[0, 0.35, 0]} scale={0.88} />
           <LocalLight position={[0, 1.16, -2.06]} color="#55c8bd" intensity={powered ? 7 : 0.5} distance={3.0} pulse={0.035} />
           <SourceHalo position={[0, 1.16, -2.06]} color="#55c8bd" size={0.64} opacity={powered ? 0.34 : 0.06} />
           <GroundLightPool position={[0, 0.38, -1.94]} color="#55c8bd" size={[2.5, 1.8]} opacity={powered ? 0.11 : 0.02} />
@@ -665,7 +735,14 @@ function District({ game, quality, guideBeat }: { game: GameSnapshot; quality: Q
           scale={0.34}
           rotation={[0, game.phase === 'rescuing' ? 0.76 : rescueShot ? 0.52 : game.phase === 'repair-guide' ? -0.15 : 2.55, 0]}
         />
-        {showLin && <RiggedAsset assetId="lin" motion={linEmerging ? 'signal' : game.assigned ? 'work' : 'point'} active position={linEmerging ? [-2.72, 0.48, -2.30] : game.assigned ? [-1.50, 0.48, 0.00] : [-3.06, 0.48, -2.00]} scale={0.35} rotation={[0, linEmerging ? -1.15 : game.assigned ? 0.8 : 2.2, 0]} />}
+        {showLin && <RiggedAsset
+          assetId="lin"
+          motion={linEmerging ? 'signal' : game.phase === 'assigning' ? 'walk' : game.assigned ? 'work' : 'point'}
+          active
+          position={linEmerging ? [-2.72, 0.48, -2.30] : game.phase === 'assigning' ? linAssignmentPose.position : game.assigned ? [-1.50, 0.48, 0.00] : [...ASSIGN_PATH[0]]}
+          scale={0.35}
+          rotation={[0, linEmerging ? -1.15 : game.phase === 'assigning' ? linAssignmentPose.rotation : game.assigned ? 0.8 : 2.2, 0]}
+        />}
         {Array.from({ length: 8 }, (_, index) => <Enemy key={index} index={index} kind={index > 5 ? 'stalker' : 'husk'} game={game} />)}
 
         {game.phase === 'rescue-guide' && guideBeat === 0 && <Html position={[-3.24, 1.92, -3.16]} center><span className="ad-world-speech">{t('workerHelp')}</span></Html>}

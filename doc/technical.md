@@ -27,7 +27,7 @@
 
 ### 状态管理与主循环
 
-`useAfterlight()` 维护 `intro → rescue-guide → rescuing → assign-guide → production-proof → repair-guide → dusk → defense → slice-win/slice-fail`。搜救、分工与修复 phase 内部再由界面 beat 区分“理解目标”和“执行动作”，只有真实玩法动作会推进 phase。救援耗时 3.2 秒；夜袭用 `requestAnimationFrame` 更新 38 秒计时、路障耐久和核心耐久。前 8 秒为缓冲期，路灯过载在第 5 秒解锁，消耗 8 电力并减缓 8 秒压力。
+`useAfterlight()` 维护 `intro → rescue-guide → rescuing → assign-guide → assigning → production-proof → repair-guide → dusk → defense → slice-win/slice-fail`。搜救、分工与修复 phase 内部再由界面 beat 区分“理解目标”和“执行动作”，只有真实玩法动作会推进 phase。正确分配先进入 `assigning`，`assignmentProgress` 从 0 到 1 驱动角色转身、三段路径与到岗转向；到达前 `assigned` 保持 false，因此供电、奖励和生产对白都不会提前。救援耗时 3.2 秒；夜袭用 `requestAnimationFrame` 更新 38 秒计时、路障耐久和核心耐久。前 8 秒为缓冲期，路灯过载在第 5 秒解锁，消耗 8 电力并减缓 8 秒压力。
 
 ### 屏幕适配与输入
 
@@ -39,7 +39,7 @@
 
 ### 场景、碰撞与更新
 
-当前垂直切片没有自由移动物理碰撞；敌人沿四条明确车道进入路障前的镜头范围，战斗伤害由时间压力模型计算。主场景使用重新入库的 `scene__afterlightTerrain`：一个 15×18u 地基加一块连续草地顶面，消费端保持 1:1；主路、维修支路、前坪和 junction patch 仅以 0.025–0.030u 的表面层嵌入，不再使用独立草台、道路厚板或外露土坡拼接。30×30u 的低矮 `DistrictUnderlay` 只负责极端镜头雾中延伸，不增加交互内容。`scene__signalHouse` 深化为连续基座、主厅、侧翼、双坡屋顶、双檐口、深门框、雨棚、窗台、配电箱和屋顶设备，并保留 `state_signalDoorway / state_signalDoorPivot / state_signalDoor / state_doorBrace / state_doorLatch` 五个正式状态节点。新增 `scene__afterlightWorkshop` 以开放维修口、工具墙、屋顶监视器、行车横梁和吊钩包围工作台；它只在生产阶段后显现。`SignalHouse` 先让斜撑落到 0.18u 基座顶，再绕真实铰链开门；林在进度超过 72% 后才出现在门外安全点。`_qa/capture.mjs` 额外截取 `rescuing-emergence` 状态验证出门帧。正式叙事角色和敌人继续使用 `people__afterlightLin`、`people__afterlightJo`、`monsters__blackoutHusk` 与 `monsters__cableStalker`。角色 GLB 按命名 rig 节点恢复各自 rest pose，再通过 `signal / point / work / shamble / prowl` 动作档案叠加相对关节旋转。
+当前垂直切片没有自由移动物理碰撞；敌人沿四条明确车道进入路障前的镜头范围，战斗伤害由时间压力模型计算。主场景使用重新入库的 `scene__afterlightTerrain`：一个 15×18u 地基加一块连续草地顶面，消费端保持 1:1；主路、维修支路、前坪和 junction patch 仅以 0.025–0.030u 的表面层嵌入，不再使用独立草台、道路厚板或外露土坡拼接。30×30u 的低矮 `DistrictUnderlay` 只负责极端镜头雾中延伸，不增加交互内容。`scene__signalHouse` 深化为连续基座、主厅、侧翼、双坡屋顶、双檐口、深门框、雨棚、窗台、配电箱和屋顶设备，并保留 `state_signalDoorway / state_signalDoorPivot / state_signalDoor / state_doorBrace / state_doorLatch` 五个正式状态节点。新增 `scene__afterlightWorkshop` 以开放维修口、工具墙、屋顶监视器、行车横梁和吊钩包围工作台；它只在生产阶段后显现。`SignalHouse` 先让斜撑落到 0.18u 基座顶，再绕真实铰链开门；林在进度超过 72% 后才出现在门外安全点。`_qa/capture.mjs` 额外截取 `rescuing-emergence` 状态验证出门帧。正式叙事角色和敌人继续使用 `people__afterlightLin`、`people__afterlightJo`、`monsters__blackoutHusk` 与 `monsters__cableStalker`。角色 GLB 按命名 rig 节点恢复各自 rest pose，再通过 `walk / signal / point / work / shamble / prowl` 动作档案叠加相对关节旋转。`walk` 让腿与对侧手臂反相摆动；外层 group 由 `assignmentPose()` 沿四个路径点移动和转向，内层 group 只负责步态与接地起伏。行走时钟逐帧累计并把单帧推进限制为 100ms：正常 10–60fps 保持 2.8 秒，极低帧率宁可延长也不会从起点跳到终点。`prefers-reduced-motion` 只把行走肢体摆幅归零，外层路径和到岗因果仍保留。
 
 防守更新以真实帧间隔推进，单帧 `dt` 上限为 0.25 秒：低帧率 WebGL 设备上的 38 秒倒计时仍接近墙钟时间，切后台返回时又不会一次累计过量伤害。
 

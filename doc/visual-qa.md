@@ -5,7 +5,7 @@
 - Review target：15×18 连续大地面、深化建筑、完整三值灯光、GTAO/Bloom 后处理、角色接地、卡通街区防线 UI、夜战和窄屏构图。
 - Requirements / visual bible：`doc/requirements.md`、`doc/visual.md`。
 - Viewports：390×844、320×568；主构图均为 platform-layout。
-- Evidence：`_qa/ui/390x844-platform-layout-*.png`、`_qa/ui/320x568-platform-layout-*.png`、`_qa/ui/render-upgrade-before/`、`_qa/ui/capture-findings.json`。
+- Evidence：`_qa/ui/390x844-platform-layout-*.png`、`_qa/ui/320x568-platform-layout-*.png`、`_qa/ui/assignment-motion/`、`_qa/ui/render-upgrade-before/`、`_qa/ui/capture-findings.json`。
 - Model-state evidence：`node _qa/verify-signal-house.mjs`；共享库存 `98/98`，scene `15`；独立环境美术复审 v4 PASS。
 
 ## Executive assessment
@@ -22,12 +22,12 @@
 | Hierarchy | 4.8 | 铆钉阶段牌、资源托盘、任务条、人物卡与蓝色主行动依次分层 | 新步骤继续保持唯一主行动 |
 | Coherence | 4.7 | 正式 GLB、同源胸像、粗描边奶油面板与状态分色属于同一休闲手游语言 | 不引入写实皮革、玻璃或另一套卡片语言 |
 | Readability | 4.4 | AO 提升窗框/梁柱分离；中文窄屏两行内可读 | 长英文继续做回归 |
-| Game feel | 4.3 | 救援动作、灯光阻尼、过载镜头峰值与 12 根短线 | 补开门三帧证据 |
+| Game feel | 4.6 | 救援动作、完整分配行走、到岗生产、灯光阻尼与过载镜头峰值 | 真机复核脚步音量 |
 | Asset quality | 4.5 | 15×18 单块地面、深化信号屋与开放维修棚由正式 builder 导出；AO 让细节在目标相机中可见 | 后续状态资产复用 pivot 与连续地表合同 |
 | Responsive UX | 4.8 | 390×844 与 320×568 中文全流程无横向溢出，窄屏人物卡经 matched recheck 收至 126–132px | 后续新增文案需复验两尺寸 |
 | Polish | 4.7 | 2px 深描边、暖白内高光、短底托、按钮压下与完成/警告状态形成稳定细节系统 | 真机建立低端 GPU 降级档 |
 
-Final average：4.60 / 5；无类别低于 4。
+Final average：4.64 / 5；无类别低于 4。
 
 ## Iteration findings and fixes
 
@@ -64,6 +64,7 @@ Final average：4.60 / 5；无类别低于 4。
 31. P1，前期信息一次性倾倒且自动披露仍令人费解：原搜救步骤同屏立即出现阶段、四资源、任务条、对白、场内呼喊和行动键；首轮修复改为自动三拍，但玩家仍需被动等待并判断何时能操作。最终改为动作驱动两段式：第一段只有人物情境和“查看目标”，点击后人物卡收起，第二段只保留任务与唯一真实操作；资源继续按用途逐项解锁。matched evidence 覆盖 390×844 的 `rescue-context / rescue-guide / repair-context / repair-guide` 与 320×568 的 `assign-context / assign-guide`，0 findings。
 32. P1，教学镜头推得过近：旧救援/工作/修复 zoom 为 106–118，人物、目标与周边道路无法同时建立空间关系。最终调整为救援 88–92、工作 90–94、修复 88，黄昏/夜战 76；390×844 与 320×568 复查均能同时看到角色、完整目标和周边道路，地形外缘仍未进入主画面，夜战敌人和灯区保持可辨。
 33. P1，全局信息仍在阶段切换时成批进入：对搜救、分工、首次产出、修复、黄昏、技能教学与结算逐项做新增信息审计。最终建立场内演出→人物卡→目标→操作接力；分工目标先于居民卡 900ms；`+3` 奖励退出后才显示对白；黄昏灯区先于人物卡；技能直到口令后开放；结算按结果/统计/重玩三拍显示。matched evidence 覆盖两尺寸前期流程以及 390×844 修复、黄昏、夜战、结算，`capture-findings.json` 为 0 findings。
+34. P1，正确分配后人物瞬移到工作台：原 `assignWorker()` 同帧写入 `assigned=true`，场景位置直接从门外切到岗位，只有到岗后的 `work` 肢体循环，没有走过去的因果演出。新增独立 `assigning` phase、2.8 秒转身/三段开放路径/到岗转向、普通人反相步态和五个路径脚步点；到岗前不点亮供电、不增加废料、不显示生产对白。首轮路径从屋后经过，角色被维修棚屋顶遮住且文字进度卡抢占视线；matched recheck 将起点移到开放道路集合点并取消文字卡。第二轮又发现绝对墙钟在低帧率下会一帧跳到终点，最终改为单帧最多推进 100ms。`_qa/ui/assignment-motion/report.json` 在 390×844 的 10.7% / 35.7% / 64.3% / 92.9% / 工作五帧、320×568 中点/工作和 reduced-motion 中点共 8 份证据中返回 0 findings；完整拖拽流程两尺寸与 external-guest 复查同样为 0 findings。
 
 ## Foundation and build gates
 

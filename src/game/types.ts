@@ -3,6 +3,7 @@ export type Phase =
   | 'rescue-guide'
   | 'rescuing'
   | 'assign-guide'
+  | 'assigning'
   | 'production-proof'
   | 'repair-guide'
   | 'dusk'
@@ -25,6 +26,7 @@ export type GameSnapshot = {
   barricadeHp: number
   coreHp: number
   rescueProgress: number
+  assignmentProgress: number
   defenseElapsed: number
   defenseDuration: number
   overdriveUntil: number

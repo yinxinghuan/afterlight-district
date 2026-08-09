@@ -10,6 +10,7 @@ const INITIAL: GameSnapshot = {
   barricadeHp: 60,
   coreHp: 100,
   rescueProgress: 0,
+  assignmentProgress: 0,
   defenseElapsed: 0,
   defenseDuration: 38,
   overdriveUntil: 0,
@@ -21,6 +22,8 @@ export function useAfterlight() {
   const [muted, setMuted] = useState(() => localStorage.getItem('afterlight_muted') === '1')
   const phaseRef = useRef<Phase>('intro')
   const rafRef = useRef(0)
+  const assignmentRafRef = useRef(0)
+  const assignmentTimersRef = useRef<number[]>([])
   const lastRef = useRef(0)
 
   const play = useCallback((freq: number, duration?: number, volume?: number, next?: number) => {
@@ -38,7 +41,7 @@ export function useAfterlight() {
   }, [play, setPhase])
 
   const skipTutorial = useCallback(() => {
-    setGame({ ...INITIAL, phase: 'dusk', rescued: true, assigned: true, barricadeHp: 85, resources: { ...INITIAL.resources, scrap: 18 } })
+    setGame({ ...INITIAL, phase: 'dusk', rescued: true, assigned: true, assignmentProgress: 1, barricadeHp: 85, resources: { ...INITIAL.resources, scrap: 18 } })
     phaseRef.current = 'dusk'
   }, [])
 
@@ -64,12 +67,40 @@ export function useAfterlight() {
   const assignWorker = useCallback(() => {
     if (phaseRef.current !== 'assign-guide') return false
     play(440, 0.16, 0.16, 660)
-    phaseRef.current = 'production-proof'
-    setGame(current => ({ ...current, phase: 'production-proof', assigned: true }))
-    window.setTimeout(() => {
-      setGame(current => ({ ...current, resources: { ...current.resources, scrap: current.resources.scrap + 3 } }))
-      play(520, 0.09, 0.12)
-    }, 700)
+    assignmentTimersRef.current.forEach(window.clearTimeout)
+    assignmentTimersRef.current = []
+    cancelAnimationFrame(assignmentRafRef.current)
+    phaseRef.current = 'assigning'
+    setGame(current => ({ ...current, phase: 'assigning', assigned: false, assignmentProgress: 0 }))
+
+    let elapsed = 0
+    let previous = performance.now()
+    let footstepIndex = 0
+    const footsteps = [0.18, 0.34, 0.50, 0.66, 0.82]
+    const tick = (now: number) => {
+      if (phaseRef.current !== 'assigning') return
+      const delta = Math.min(100, Math.max(0, now - previous))
+      previous = now
+      elapsed += delta
+      const progress = Math.min(1, elapsed / 2800)
+      setGame(current => ({ ...current, assignmentProgress: progress }))
+      if (footstepIndex < footsteps.length && progress >= footsteps[footstepIndex]) {
+        play(footstepIndex % 2 === 0 ? 145 : 166, 0.045, 0.035)
+        footstepIndex += 1
+      }
+      if (progress < 1) {
+        assignmentRafRef.current = requestAnimationFrame(tick)
+        return
+      }
+      phaseRef.current = 'production-proof'
+      setGame(current => ({ ...current, phase: 'production-proof', assigned: true, assignmentProgress: 1 }))
+      play(520, 0.12, 0.13, 700)
+      assignmentTimersRef.current.push(window.setTimeout(() => {
+        setGame(current => ({ ...current, resources: { ...current.resources, scrap: current.resources.scrap + 3 } }))
+        play(620, 0.09, 0.11)
+      }, 700))
+    }
+    assignmentRafRef.current = requestAnimationFrame(tick)
     return true
   }, [play])
 
@@ -145,8 +176,16 @@ export function useAfterlight() {
 
   const restart = useCallback(() => {
     cancelAnimationFrame(rafRef.current)
+    cancelAnimationFrame(assignmentRafRef.current)
+    assignmentTimersRef.current.forEach(window.clearTimeout)
+    assignmentTimersRef.current = []
     phaseRef.current = 'intro'
     setGame(INITIAL)
+  }, [])
+
+  useEffect(() => () => {
+    cancelAnimationFrame(assignmentRafRef.current)
+    assignmentTimersRef.current.forEach(window.clearTimeout)
   }, [])
 
   const replayHint = useCallback(() => {

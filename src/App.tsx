@@ -98,7 +98,7 @@ export default function App() {
 
   return (
     <main className={`ad-shell${night ? ' ad-shell--night' : ''}`}>
-      <div className="ad-game" data-guide-phase={game.phase} data-guide-beat={guideBeat}>
+      <div className="ad-game" data-guide-phase={game.phase} data-guide-beat={guideBeat} data-assignment-progress={game.assignmentProgress.toFixed(3)}>
         <div className="ad-scene" aria-label={t('sceneLabel')}><AfterlightScene game={game} guideBeat={guideBeat} /></div>
         <div className="ad-vignette" />
 

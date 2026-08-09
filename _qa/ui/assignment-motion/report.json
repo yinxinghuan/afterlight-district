@@ -1,0 +1,78 @@
+{
+  "ok": true,
+  "findings": [],
+  "evidence": [
+    {
+      "label": "390x844-platform-layout-assigning-turn",
+      "path": "/Users/yin/code/games/afterlight-district/_qa/ui/assignment-motion/390x844-platform-layout-assigning-turn.png",
+      "requestedProgress": 0.05,
+      "capturedProgress": 0.107,
+      "measuredDuration": null,
+      "reducedMotion": false,
+      "working": false
+    },
+    {
+      "label": "390x844-platform-layout-assigning-path-entry",
+      "path": "/Users/yin/code/games/afterlight-district/_qa/ui/assignment-motion/390x844-platform-layout-assigning-path-entry.png",
+      "requestedProgress": 0.3,
+      "capturedProgress": 0.357,
+      "measuredDuration": null,
+      "reducedMotion": false,
+      "working": false
+    },
+    {
+      "label": "390x844-platform-layout-assigning-midpoint",
+      "path": "/Users/yin/code/games/afterlight-district/_qa/ui/assignment-motion/390x844-platform-layout-assigning-midpoint.png",
+      "requestedProgress": 0.58,
+      "capturedProgress": 0.643,
+      "measuredDuration": null,
+      "reducedMotion": false,
+      "working": false
+    },
+    {
+      "label": "390x844-platform-layout-assigning-approach",
+      "path": "/Users/yin/code/games/afterlight-district/_qa/ui/assignment-motion/390x844-platform-layout-assigning-approach.png",
+      "requestedProgress": 0.86,
+      "capturedProgress": 0.929,
+      "measuredDuration": null,
+      "reducedMotion": false,
+      "working": false
+    },
+    {
+      "label": "390x844-platform-layout-assignment-working",
+      "path": "/Users/yin/code/games/afterlight-district/_qa/ui/assignment-motion/390x844-platform-layout-assignment-working.png",
+      "requestedProgress": 1,
+      "capturedProgress": 1,
+      "measuredDuration": 9222,
+      "reducedMotion": false,
+      "working": true
+    },
+    {
+      "label": "320x568-platform-layout-assigning-midpoint",
+      "path": "/Users/yin/code/games/afterlight-district/_qa/ui/assignment-motion/320x568-platform-layout-assigning-midpoint.png",
+      "requestedProgress": 0.58,
+      "capturedProgress": 0.643,
+      "measuredDuration": null,
+      "reducedMotion": false,
+      "working": false
+    },
+    {
+      "label": "320x568-platform-layout-assignment-working",
+      "path": "/Users/yin/code/games/afterlight-district/_qa/ui/assignment-motion/320x568-platform-layout-assignment-working.png",
+      "requestedProgress": 1,
+      "capturedProgress": 1,
+      "measuredDuration": 6440,
+      "reducedMotion": false,
+      "working": true
+    },
+    {
+      "label": "390x844-platform-layout-assigning-midpoint-reduced",
+      "path": "/Users/yin/code/games/afterlight-district/_qa/ui/assignment-motion/390x844-platform-layout-assigning-midpoint-reduced.png",
+      "requestedProgress": 0.58,
+      "capturedProgress": 0.643,
+      "measuredDuration": null,
+      "reducedMotion": true,
+      "working": false
+    }
+  ]
+}
