@@ -1,0 +1,59 @@
+{
+  "metrics": [
+    {
+      "viewport": "390x844",
+      "requested": "low",
+      "cssWidth": 390,
+      "cssHeight": 844,
+      "bufferWidth": 390,
+      "bufferHeight": 844,
+      "tier": "low"
+    },
+    {
+      "viewport": "390x844",
+      "requested": "balanced",
+      "cssWidth": 390,
+      "cssHeight": 844,
+      "bufferWidth": 390,
+      "bufferHeight": 844,
+      "tier": "balanced"
+    },
+    {
+      "viewport": "390x844",
+      "requested": "high",
+      "cssWidth": 390,
+      "cssHeight": 844,
+      "bufferWidth": 585,
+      "bufferHeight": 1266,
+      "tier": "high"
+    },
+    {
+      "viewport": "320x568",
+      "requested": "low",
+      "cssWidth": 320,
+      "cssHeight": 568,
+      "bufferWidth": 320,
+      "bufferHeight": 568,
+      "tier": "low"
+    },
+    {
+      "viewport": "320x568",
+      "requested": "balanced",
+      "cssWidth": 320,
+      "cssHeight": 568,
+      "bufferWidth": 320,
+      "bufferHeight": 568,
+      "tier": "balanced"
+    },
+    {
+      "viewport": "320x568",
+      "requested": "high",
+      "cssWidth": 320,
+      "cssHeight": 568,
+      "bufferWidth": 480,
+      "bufferHeight": 852,
+      "tier": "high"
+    }
+  ],
+  "findings": []
+}

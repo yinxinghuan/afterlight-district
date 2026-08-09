@@ -1,0 +1,14 @@
+{
+  "metrics": [
+    {
+      "viewport": "390x844",
+      "requested": "high",
+      "cssWidth": 390,
+      "cssHeight": 844,
+      "bufferWidth": 780,
+      "bufferHeight": 1688,
+      "tier": "high"
+    }
+  ],
+  "findings": []
+}
