@@ -61,7 +61,7 @@
 
 ### 存储与平台边界
 
-本实验仅在首次防守胜利时写入 `afterlight_tutorial_complete`，尚未接入排行榜、共享世界或平台存档。生产入口保留远程 `guest-shell.js`；QA 的 platform-layout 状态只在测试脚本里隐藏外部访客栏，不修改生产行为。
+本实验仅在首次防守胜利时写入 `afterlight_tutorial_complete`，尚未接入排行榜、共享世界或平台存档。`worker/index.js` 只实现正式部署器要求的 `/api/health`，不创建数据库或第二套共享世界；自托管主站与 GitHub Pages 使用同一前端提交和永久 UUID。生产入口保留远程 `guest-shell.js`；QA 的 platform-layout 状态只在测试脚本里隐藏外部访客栏，不修改生产行为。
 
 ## 4. 扩展点
 
