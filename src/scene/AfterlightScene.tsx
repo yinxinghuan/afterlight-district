@@ -287,6 +287,8 @@ const CAMERA_BY_PHASE: Record<GameSnapshot['phase'], { target: [number, number, 
   assigning: { target: [-2.10, 0.50, -0.72], zoom: 91, offset: [7.5, 8.6, 9.5] },
   'production-proof': { target: [-1.02, 0.5, -0.22], zoom: 94, offset: [7.5, 8.2, 9.5] },
   'repair-guide': { target: [0, 0.44, 3.18], zoom: 88, offset: [9.5, 8.2, 11.5] },
+  repairing: { target: [-0.12, 0.44, 2.18], zoom: 86, offset: [9.5, 8.2, 11.5] },
+  'day-brief': { target: [0, 0.40, 0.68], zoom: 76, offset: [9.5, 8.8, 11.5] },
   dusk: { target: [0, 0.38, 0.62], zoom: 76, offset: [9.5, 8.8, 11.5] },
   defense: { target: [0, 0.36, 1.62], zoom: 76, offset: [10.5, 7.8, 12.5] },
   'slice-win': { target: [0, 0.36, 0.35], zoom: 82, offset: [9.5, 8.6, 11.5] },
@@ -589,11 +591,21 @@ function RelayMotes({ active }: { active: boolean }) {
 }
 
 function DistrictUnderlay() {
+  const macroMap = getTerrainMacroMap()
   return (
-    <mesh position={[0, 0.14, 0]} receiveShadow>
-      <boxGeometry args={[30, 0.20, 30]} />
-      <meshStandardMaterial color="#17301f" roughness={1} metalness={0} />
-    </mesh>
+    <>
+      <mesh position={[0, 0.10, 0]} receiveShadow>
+        <boxGeometry args={[80, 0.20, 80]} />
+        <meshStandardMaterial color="#17301f" roughness={1} metalness={0} />
+      </mesh>
+      {/* The authored terrain is a 15 x 18 slab whose bevel used to read as the
+          edge of a tabletop. Continue its grass surface beneath the roads and
+          props so every directed camera shot sees an unbounded district. */}
+      <mesh position={[0, 0.482, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[80, 80]} />
+        <meshStandardMaterial color="#24501f" map={macroMap} roughness={1} metalness={0} />
+      </mesh>
+    </>
   )
 }
 
@@ -604,7 +616,8 @@ function Enemy({ index, kind, game }: { index: number; kind: 'husk' | 'stalker';
   useFrame(() => {
     if (!group.current || game.phase !== 'defense') return
     const slowed = game.overdriveUntil > game.defenseElapsed
-    const speed = (kind === 'stalker' ? 0.42 : 0.31) * (slowed ? 0.42 : 1)
+    const nightMultiplier = 1 + (game.day - 1) * 0.11
+    const speed = (kind === 'stalker' ? 0.42 : 0.31) * nightMultiplier * (slowed ? 0.42 : 1)
     const travel = Math.max(0, game.defenseElapsed * speed - waveRow * 1.25)
     // Keep the whole first wave in the playable camera volume. They advance from
     // the road edge and stack at the barricade instead of silently looping off-map.
@@ -681,16 +694,75 @@ function assignmentPose(progress: number) {
   }
 }
 
+const REPAIR_PATH: ReadonlyArray<readonly [number, number, number]> = [
+  [-1.50, 0.48, 0.00],
+  [-1.34, 0.44, 0.72],
+  [-0.72, 0.39, 1.62],
+  [0.52, 0.34, 2.78],
+]
+const REPAIR_SEGMENT_LENGTHS = REPAIR_PATH.slice(1).map((point, index) => {
+  const previous = REPAIR_PATH[index]
+  return Math.hypot(point[0] - previous[0], point[2] - previous[2])
+})
+const REPAIR_PATH_LENGTH = REPAIR_SEGMENT_LENGTHS.reduce((sum, length) => sum + length, 0)
+
+function sampleRepairPath(progress: number) {
+  let distance = THREE.MathUtils.clamp(progress, 0, 1) * REPAIR_PATH_LENGTH
+  for (let index = 0; index < REPAIR_SEGMENT_LENGTHS.length; index += 1) {
+    const length = REPAIR_SEGMENT_LENGTHS[index]
+    if (distance <= length || index === REPAIR_SEGMENT_LENGTHS.length - 1) {
+      const amount = THREE.MathUtils.clamp(distance / length, 0, 1)
+      const from = REPAIR_PATH[index]
+      const to = REPAIR_PATH[index + 1]
+      return {
+        position: [
+          THREE.MathUtils.lerp(from[0], to[0], amount),
+          THREE.MathUtils.lerp(from[1], to[1], amount),
+          THREE.MathUtils.lerp(from[2], to[2], amount),
+        ] as [number, number, number],
+        rotation: Math.atan2(to[0] - from[0], to[2] - from[2]),
+      }
+    }
+    distance -= length
+  }
+  return { position: [...REPAIR_PATH[REPAIR_PATH.length - 1]] as [number, number, number], rotation: 0.08 }
+}
+
+function repairPose(progress: number) {
+  const turnEnd = 0.09
+  const walkEnd = 0.75
+  const firstHeading = sampleRepairPath(0).rotation
+  const finalHeading = sampleRepairPath(0.999).rotation
+  if (progress <= turnEnd) {
+    return {
+      position: [...REPAIR_PATH[0]] as [number, number, number],
+      rotation: lerpAngle(0.8, firstHeading, easeInOut(progress / turnEnd)),
+      walking: false,
+    }
+  }
+  if (progress < walkEnd) {
+    const travel = easeInOut((progress - turnEnd) / (walkEnd - turnEnd))
+    return { ...sampleRepairPath(travel), walking: true }
+  }
+  return {
+    position: [...REPAIR_PATH[REPAIR_PATH.length - 1]] as [number, number, number],
+    rotation: lerpAngle(finalHeading, 0.08, easeInOut((progress - walkEnd) / (1 - walkEnd))),
+    walking: false,
+  }
+}
+
 function District({ game, quality, guideBeat }: { game: GameSnapshot; quality: QualityConfig; guideBeat: number }) {
-  const powered = game.assigned || ['repair-guide', 'dusk', 'defense', 'slice-win', 'slice-fail'].includes(game.phase)
+  const powered = game.assigned || ['repair-guide', 'repairing', 'day-brief', 'dusk', 'defense', 'slice-win', 'slice-fail'].includes(game.phase)
   const overdrive = game.overdriveUntil > game.defenseElapsed
   const night = ['dusk', 'defense', 'slice-win', 'slice-fail'].includes(game.phase)
-  const productionVisible = ['assign-guide', 'assigning', 'production-proof', 'repair-guide', 'dusk', 'defense', 'slice-win', 'slice-fail'].includes(game.phase)
-  const defenseVisible = ['repair-guide', 'dusk', 'defense', 'slice-win', 'slice-fail'].includes(game.phase)
+  const productionVisible = ['assign-guide', 'assigning', 'production-proof', 'repair-guide', 'repairing', 'day-brief', 'dusk', 'defense', 'slice-win', 'slice-fail'].includes(game.phase)
+  const defenseVisible = ['repair-guide', 'repairing', 'day-brief', 'dusk', 'defense', 'slice-win', 'slice-fail'].includes(game.phase)
   const rescueShot = game.phase === 'rescue-guide' || game.phase === 'rescuing'
   const linEmerging = game.phase === 'rescuing' && game.rescueProgress > 0.72
   const showLin = game.rescued || linEmerging
   const linAssignmentPose = assignmentPose(game.assignmentProgress)
+  const linRepairPose = repairPose(game.repairProgress)
+  const linAtBarricade = ['repairing', 'day-brief', 'dusk', 'defense', 'slice-win', 'slice-fail'].includes(game.phase)
 
   return (
     <>
@@ -716,7 +788,7 @@ function District({ game, quality, guideBeat }: { game: GameSnapshot; quality: Q
           <GroundLightPool position={[0, 0.38, -1.94]} color="#55c8bd" size={[2.5, 1.8]} opacity={powered ? 0.11 : 0.02} />
         </>}
         {defenseVisible && <>
-          <Asset assetId="barricade" outlineRole={game.phase === 'repair-guide' ? 'target' : undefined} position={[0, 0.32, 3.42]} rotation={[0, 0.02, 0]} scale={[1.62, 1, 1]} />
+          <Asset assetId="barricade" outlineRole={game.phase === 'repair-guide' || game.phase === 'repairing' ? 'target' : undefined} position={[0, 0.32, 3.42]} rotation={[0, 0.02, 0]} scale={[1.62 + (game.barricadeMax - 100) * 0.008, 1, 1]} />
           <Asset assetId="relayLamp" outlineRole={game.phase === 'defense' ? 'target' : undefined} position={[-2.22, 0.48, 2.02]} scale={0.68} />
           <Asset assetId="relayLamp" outlineRole={game.phase === 'defense' ? 'target' : undefined} position={[2.30, 0.38, 2.12]} rotation={[0, Math.PI, 0]} scale={0.68} />
           <LocalLight position={[-2.22, 1.56, 2.02]} color={overdrive ? '#70d4c8' : '#ffd58a'} intensity={overdrive ? 18 : 13} distance={4.0} pulse={overdrive ? 0.08 : 0.02} />
@@ -737,13 +809,13 @@ function District({ game, quality, guideBeat }: { game: GameSnapshot; quality: Q
         />
         {showLin && <RiggedAsset
           assetId="lin"
-          motion={linEmerging ? 'signal' : game.phase === 'assigning' ? 'walk' : game.assigned ? 'work' : 'point'}
+          motion={linEmerging ? 'signal' : game.phase === 'assigning' ? 'walk' : game.phase === 'repairing' ? linRepairPose.walking ? 'walk' : 'work' : linAtBarricade ? game.phase === 'defense' ? 'work' : 'point' : game.assigned ? 'work' : 'point'}
           active
-          position={linEmerging ? [-2.72, 0.48, -2.30] : game.phase === 'assigning' ? linAssignmentPose.position : game.assigned ? [-1.50, 0.48, 0.00] : [...ASSIGN_PATH[0]]}
+          position={linEmerging ? [-2.72, 0.48, -2.30] : game.phase === 'assigning' ? linAssignmentPose.position : game.phase === 'repairing' ? linRepairPose.position : linAtBarricade ? [...REPAIR_PATH[REPAIR_PATH.length - 1]] : game.assigned ? [-1.50, 0.48, 0.00] : [...ASSIGN_PATH[0]]}
           scale={0.35}
-          rotation={[0, linEmerging ? -1.15 : game.phase === 'assigning' ? linAssignmentPose.rotation : game.assigned ? 0.8 : 2.2, 0]}
+          rotation={[0, linEmerging ? -1.15 : game.phase === 'assigning' ? linAssignmentPose.rotation : game.phase === 'repairing' ? linRepairPose.rotation : linAtBarricade ? 0.08 : game.assigned ? 0.8 : 2.2, 0]}
         />}
-        {Array.from({ length: 8 }, (_, index) => <Enemy key={index} index={index} kind={index > 5 ? 'stalker' : 'husk'} game={game} />)}
+        {Array.from({ length: 8 + (game.day - 1) * 4 }, (_, index) => <Enemy key={index} index={index} kind={index % Math.max(3, 7 - game.day) === 0 ? 'stalker' : 'husk'} game={game} />)}
 
         {game.phase === 'rescue-guide' && guideBeat === 0 && <Html position={[-3.24, 1.92, -3.16]} center><span className="ad-world-speech">{t('workerHelp')}</span></Html>}
         {game.phase === 'rescue-guide' && guideBeat >= 2 && <Html position={[-3.24, 2.18, -3.78]} center distanceFactor={8}><span className="ad-world-ping" /></Html>}

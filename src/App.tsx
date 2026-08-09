@@ -1,7 +1,7 @@
 import { useProgress } from '@react-three/drei'
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAfterlight } from './game/useAfterlight'
-import { t } from './i18n'
+import { cooldownLabel, dawnLabel, dayLabel, nextDayLabel, nightLabel, nightSurvivedTitle, t } from './i18n'
 import { AfterlightScene } from './scene/AfterlightScene'
 import { BoltIcon, ClockIcon, HelpIcon, LightIcon, MoraleIcon, ScrapIcon, SoundIcon } from './ui/Icons'
 import alteruSrc from './img/alteru.svg'
@@ -26,7 +26,7 @@ function Objective({ step, text }: { step: string; text: string }) {
 }
 
 export default function App() {
-  const { game, muted, start, skipTutorial, rescue, assignWorker, continueToRepair, repairBarricade, beginDefense, triggerOverdrive, restart, replayHint, toggleMuted } = useAfterlight()
+  const { game, muted, start, skipTutorial, rescue, assignWorker, continueToRepair, repairBarricade, beginDefense, triggerOverdrive, triggerFieldRepair, advanceDay, chooseDayUpgrade, retryNight, restart, replayHint, toggleMuted } = useAfterlight()
   const { active, progress } = useProgress()
   const [drag, setDrag] = useState<{ x: number; y: number; ox: number; oy: number } | null>(null)
   const [dropError, setDropError] = useState(false)
@@ -38,9 +38,16 @@ export default function App() {
   const night = ['dusk', 'defense', 'slice-win', 'slice-fail'].includes(game.phase)
   const guideBeat = guideSequence.phase === game.phase ? guideSequence.beat : 0
   const showPower = game.phase !== 'intro'
-  const showScrap = ['repair-guide', 'dusk', 'defense'].includes(game.phase) || (game.phase === 'production-proof' && guideBeat >= 1)
-  const showMorale = game.phase === 'defense'
+  const showScrap = ['repair-guide', 'repairing', 'day-brief', 'dusk', 'defense', 'slice-win', 'slice-fail'].includes(game.phase) || (game.phase === 'production-proof' && guideBeat >= 1)
+  const showMorale = game.day > 1 || ['defense', 'slice-win', 'slice-fail'].includes(game.phase)
   const resourceCount = Number(showPower) + Number(showScrap) + Number(showMorale)
+  const overdriveActive = game.overdriveUntil > game.defenseElapsed
+  const overdriveCooldown = Math.max(0, Math.ceil(game.overdriveReadyAt - game.defenseElapsed))
+  const repairCooldown = Math.max(0, Math.ceil(game.repairReadyAt - game.defenseElapsed))
+  const canOverdrive = game.phase === 'defense' && !overdriveActive && overdriveCooldown === 0 && game.resources.power >= 6
+  const canFieldRepair = game.phase === 'defense' && repairCooldown === 0 && game.resources.scrap >= 4 && game.barricadeHp < game.barricadeMax
+  const overdriveStatus = overdriveActive ? t('overdriveUsed') : overdriveCooldown > 0 ? cooldownLabel(overdriveCooldown) : game.resources.power < 6 ? t('insufficientPower') : t('overdriveCost')
+  const repairStatus = game.barricadeHp >= game.barricadeMax ? t('barricadeFull') : repairCooldown > 0 ? cooldownLabel(repairCooldown) : game.resources.scrap < 4 ? t('insufficientScrap') : t('fieldRepairCost')
 
   useEffect(() => {
     revealTimers.current.forEach(window.clearTimeout)
@@ -48,7 +55,7 @@ export default function App() {
     setGuideSequence({ phase: game.phase, beat: 0 })
     const phase = game.phase
     const reveal = (beat: number, delay: number) => revealTimers.current.push(window.setTimeout(() => setGuideSequence({ phase, beat }), delay))
-    if (['rescue-guide', 'assign-guide', 'repair-guide', 'dusk'].includes(phase)) reveal(1, 650)
+    if (['rescue-guide', 'assign-guide', 'repair-guide', 'day-brief', 'dusk'].includes(phase)) reveal(1, 650)
     if (phase === 'production-proof') reveal(1, 850)
     if (phase === 'slice-win' || phase === 'slice-fail') {
       reveal(1, 650)
@@ -98,13 +105,13 @@ export default function App() {
 
   return (
     <main className={`ad-shell${night ? ' ad-shell--night' : ''}`}>
-      <div className="ad-game" data-guide-phase={game.phase} data-guide-beat={guideBeat} data-assignment-progress={game.assignmentProgress.toFixed(3)}>
+      <div className="ad-game" data-guide-phase={game.phase} data-guide-beat={guideBeat} data-assignment-progress={game.assignmentProgress.toFixed(3)} data-repair-progress={game.repairProgress.toFixed(3)} data-day={game.day}>
         <div className="ad-scene" aria-label={t('sceneLabel')}><AfterlightScene game={game} guideBeat={guideBeat} /></div>
         <div className="ad-vignette" />
 
         {game.phase !== 'intro' && <header className="ad-hud">
           <div className="ad-hud__top">
-            <div className="ad-phase"><span className="ad-phase__dot" /><b>{game.phase === 'defense' ? t('defense') : game.phase === 'dusk' ? t('dusk') : t('day')}</b>{game.phase === 'defense' && <><ClockIcon /><span>{Math.ceil(game.defenseDuration - game.defenseElapsed)}s</span></>}</div>
+            <div className="ad-phase"><span className="ad-phase__dot" /><b>{game.phase === 'defense' ? nightLabel(game.day) : game.phase === 'dusk' ? `${t('dusk')} · ${game.day}` : dayLabel(game.day)}</b>{game.phase === 'defense' && <><ClockIcon /><span>{Math.ceil(game.defenseDuration - game.defenseElapsed)}s</span></>}</div>
             <div className="ad-hud__actions">
               <button aria-label={t('help')} title={t('help')} onClick={replayCurrentGuide}><HelpIcon /></button>
               <button aria-label={muted ? t('soundOff') : t('soundOn')} title={muted ? t('soundOff') : t('soundOn')} onClick={toggleMuted}><SoundIcon muted={muted} /></button>
@@ -175,19 +182,33 @@ export default function App() {
           {guideBeat >= 3 && <button className="ad-world-action ad-world-action--barrier ad-reveal-action" onPointerDown={repairBarricade}><span className="ad-target-ring ad-target-ring--danger" /><b>{t('repair')} · 10</b><ScrapIcon /></button>}
         </>}
 
+        {game.phase === 'day-brief' && guideBeat >= 1 && <Dialogue portrait="worker" name={t('workerName')} line={t('dayBriefLine')}>
+          <span className="ad-choice-label">{t('chooseUpgrade')}</span>
+          <div className="ad-choice-grid">
+            <button onPointerDown={() => chooseDayUpgrade('barricade')} disabled={game.resources.scrap < 8}><ScrapIcon /><b>{t('reinforce')}</b><small>{t('reinforceDesc')}</small></button>
+            <button onPointerDown={() => chooseDayUpgrade('battery')} disabled={game.resources.scrap < 8}><BoltIcon /><b>{t('battery')}</b><small>{t('batteryDesc')}</small></button>
+          </div>
+        </Dialogue>}
+
         {game.phase === 'dusk' && guideBeat >= 1 && <Dialogue portrait="guard" name={t('mentorName')} line={t('mentorDuskLine')}>
           <button className="ad-dialogue__action" onPointerDown={beginDefense}><LightIcon />{t('ready')}</button>
         </Dialogue>}
 
         {game.phase === 'defense' && <>
           <div className="ad-defense-bars">
-            <label><span>{t('barricade')}</span><i><b style={{ width: `${game.barricadeHp}%` }} /></i><em>{Math.ceil(game.barricadeHp)}</em></label>
+            <label><span>{t('barricade')}</span><i><b style={{ width: `${game.barricadeHp / game.barricadeMax * 100}%` }} /></i><em>{Math.ceil(game.barricadeHp)}</em></label>
             <label><span>{t('core')}</span><i><b style={{ width: `${game.coreHp}%` }} /></i><em>{Math.ceil(game.coreHp)}</em></label>
           </div>
-          {game.defenseElapsed >= 5 && <button className={`ad-skill${!game.overdriveUsed ? ' ad-skill--ready' : ''}`} onPointerDown={triggerOverdrive} disabled={game.overdriveUsed}>
-            <LightIcon /><span><b>{t('overdrive')}</b><small>{game.overdriveUsed ? t('overdriveUsed') : game.defenseElapsed < 5 ? t('overdriveReady') : t('overdriveCost')}</small></span>
-          </button>}
-          {game.defenseElapsed >= 4.5 && game.defenseElapsed < 11 && <div className={`ad-comms ad-comms--${game.overdriveUsed ? 'worker' : 'guard'}`}>
+          <div className="ad-defense-actions">
+            <button className={`ad-skill${canOverdrive ? ' ad-skill--ready' : ''}`} onPointerDown={triggerOverdrive} disabled={!canOverdrive}>
+              <LightIcon /><span><b>{t('overdrive')}</b><small>{overdriveStatus}</small></span>
+            </button>
+            <button className={`ad-skill ad-skill--repair${canFieldRepair ? ' ad-skill--ready' : ''}`} onPointerDown={triggerFieldRepair} disabled={!canFieldRepair}>
+              <ScrapIcon /><span><b>{t('fieldRepair')}</b><small>{repairStatus}</small></span>
+            </button>
+          </div>
+          {game.fieldRepairUntil > game.defenseElapsed && <span key={game.fieldRepairCount} className="ad-repair-pop">+14</span>}
+          {game.day === 1 && game.defenseElapsed >= 4.5 && game.defenseElapsed < 11 && <div className={`ad-comms ad-comms--${game.overdriveUsed ? 'worker' : 'guard'}`}>
             <img src={game.overdriveUsed ? './portraits/lin-bust.png' : './portraits/jo-bust.png'} alt="" draggable={false} />
             <p><b>{game.overdriveUsed ? t('workerName') : t('mentorName')}</b>{game.overdriveUsed ? t('workerOverdriveLine') : t('mentorOverdriveLine')}</p>
           </div>}
@@ -195,11 +216,11 @@ export default function App() {
 
         {(game.phase === 'slice-win' || game.phase === 'slice-fail') && <section className={`ad-result ad-result--${game.phase === 'slice-win' ? 'win' : 'fail'}`}>
           <div className="ad-result__mark">{game.phase === 'slice-win' ? <><i /><i /><i /></> : <><i /><i /></>}</div>
-          <span>{game.phase === 'slice-win' ? t('dawnOne') : t('signalLost')}</span>
-          <h2>{game.phase === 'slice-win' ? t('winTitle') : t('failTitle')}</h2>
-          <p>{game.phase === 'slice-win' ? t('winBody') : t('failBody')}</p>
+          <span>{game.phase === 'slice-win' ? dawnLabel(game.day) : t('signalLost')}</span>
+          <h2>{game.phase === 'slice-win' ? game.day === 3 ? t('finalWinTitle') : nightSurvivedTitle(game.day) : t('failTitle')}</h2>
+          <p>{game.phase === 'slice-win' ? game.day === 3 ? t('finalWinBody') : t('winBody') : t('failBody')}</p>
           {guideBeat >= 1 && <div className="ad-result__stats ad-reveal-step"><b>{Math.ceil(game.coreHp)}</b><small>{t('core')}</small><b>{Math.ceil(game.barricadeHp)}</b><small>{t('barricade')}</small><b>{Math.round(game.resources.morale)}</b><small>{t('morale')}</small></div>}
-          {guideBeat >= 2 && <button className="ad-primary ad-reveal-step" onPointerDown={restart}>{game.phase === 'slice-win' ? t('replay') : t('retry')}</button>}
+          {guideBeat >= 2 && <button className="ad-primary ad-reveal-step" onPointerDown={game.phase === 'slice-fail' ? retryNight : game.day < 3 ? advanceDay : restart}>{game.phase === 'slice-fail' ? t('retry') : game.day < 3 ? nextDayLabel(game.day + 1) : t('replay')}</button>}
         </section>}
 
         {active && progress < 100 && <div className="ad-loading"><span>{t('loading')}</span><i><b style={{ width: `${progress}%` }} /></i></div>}

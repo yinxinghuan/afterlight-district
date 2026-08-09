@@ -1,30 +1,54 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { chord, tone } from '../audio/sound'
-import type { GameSnapshot, Phase } from './types'
+import type { DayUpgrade, GameSnapshot, Phase } from './types'
 
 const INITIAL: GameSnapshot = {
   phase: 'intro',
+  day: 1,
   resources: { power: 40, food: 30, scrap: 25, morale: 60 },
   rescued: false,
   assigned: false,
   barricadeHp: 60,
+  barricadeMax: 100,
   coreHp: 100,
   rescueProgress: 0,
   assignmentProgress: 0,
+  repairProgress: 0,
   defenseElapsed: 0,
-  defenseDuration: 38,
+  defenseDuration: 32,
   overdriveUntil: 0,
+  overdriveReadyAt: 5,
   overdriveUsed: false,
+  overdriveCount: 0,
+  repairReadyAt: 3,
+  fieldRepairUntil: 0,
+  fieldRepairCount: 0,
+}
+
+const NIGHT_DURATION = [32, 36, 40] as const
+const NIGHT_PRESSURE = [2.35, 3.2, 4.15] as const
+
+function durationForDay(day: number) {
+  if (import.meta.env.DEV) {
+    const params = new URLSearchParams(window.location.search)
+    const qaDuration = Number(params.get(`qa_night_${day}`) ?? params.get('qa_night_seconds'))
+    if (Number.isFinite(qaDuration) && qaDuration >= 8 && qaDuration <= 40) return qaDuration
+  }
+  return NIGHT_DURATION[Math.min(2, day - 1)]
 }
 
 export function useAfterlight() {
   const [game, setGame] = useState<GameSnapshot>(INITIAL)
+  const gameRef = useRef<GameSnapshot>(INITIAL)
   const [muted, setMuted] = useState(() => localStorage.getItem('afterlight_muted') === '1')
   const phaseRef = useRef<Phase>('intro')
   const rafRef = useRef(0)
   const assignmentRafRef = useRef(0)
+  const repairRafRef = useRef(0)
   const assignmentTimersRef = useRef<number[]>([])
   const lastRef = useRef(0)
+
+  useEffect(() => { gameRef.current = game }, [game])
 
   const play = useCallback((freq: number, duration?: number, volume?: number, next?: number) => {
     if (!muted) tone(freq, duration, volume, next)
@@ -41,7 +65,25 @@ export function useAfterlight() {
   }, [play, setPhase])
 
   const skipTutorial = useCallback(() => {
-    setGame({ ...INITIAL, phase: 'dusk', rescued: true, assigned: true, assignmentProgress: 1, barricadeHp: 85, resources: { ...INITIAL.resources, scrap: 18 } })
+    if (import.meta.env.DEV) {
+      const qaStartDay = Number(new URLSearchParams(window.location.search).get('qa_start_day'))
+      if (qaStartDay === 2 || qaStartDay === 3) {
+        setGame({
+          ...INITIAL,
+          day: qaStartDay,
+          phase: 'day-brief',
+          rescued: true,
+          assigned: true,
+          assignmentProgress: 1,
+          repairProgress: 1,
+          barricadeHp: 72,
+          resources: { ...INITIAL.resources, power: 44, scrap: 24, morale: 68 },
+        })
+        phaseRef.current = 'day-brief'
+        return
+      }
+    }
+    setGame({ ...INITIAL, phase: 'dusk', rescued: true, assigned: true, assignmentProgress: 1, repairProgress: 1, barricadeHp: 85, resources: { ...INITIAL.resources, scrap: 18 } })
     phaseRef.current = 'dusk'
   }, [])
 
@@ -107,35 +149,108 @@ export function useAfterlight() {
   const continueToRepair = useCallback(() => setPhase('repair-guide'), [setPhase])
 
   const repairBarricade = useCallback(() => {
-    if (phaseRef.current !== 'repair-guide') return
-    play(280, 0.16, 0.18, 420)
-    phaseRef.current = 'dusk'
+    if (phaseRef.current !== 'repair-guide') return false
+    if (gameRef.current.resources.scrap < 10) {
+      play(150, 0.10, 0.10)
+      return false
+    }
+    phaseRef.current = 'repairing'
     setGame(current => ({
       ...current,
-      phase: 'dusk',
-      barricadeHp: 85,
-      resources: { ...current.resources, scrap: Math.max(0, current.resources.scrap - 10) },
+      phase: 'repairing',
+      repairProgress: 0,
+      resources: { ...current.resources, scrap: current.resources.scrap - 10 },
     }))
+    play(280, 0.16, 0.18, 420)
+    cancelAnimationFrame(repairRafRef.current)
+    let elapsed = 0
+    let previous = performance.now()
+    let footstepIndex = 0
+    const footsteps = [0.22, 0.39, 0.56, 0.73]
+    const tick = (now: number) => {
+      if (phaseRef.current !== 'repairing') return
+      const delta = Math.min(100, Math.max(0, now - previous))
+      previous = now
+      elapsed += delta
+      const progress = Math.min(1, elapsed / 3400)
+      setGame(current => ({ ...current, repairProgress: progress }))
+      if (footstepIndex < footsteps.length && progress >= footsteps[footstepIndex]) {
+        play(footstepIndex % 2 === 0 ? 142 : 164, 0.045, 0.035)
+        footstepIndex += 1
+      }
+      if (progress < 1) {
+        repairRafRef.current = requestAnimationFrame(tick)
+        return
+      }
+      phaseRef.current = 'dusk'
+      setGame(current => ({
+        ...current,
+        phase: 'dusk',
+        repairProgress: 1,
+        barricadeHp: Math.min(current.barricadeMax, 85),
+      }))
+      play(480, 0.15, 0.15, 660)
+    }
+    repairRafRef.current = requestAnimationFrame(tick)
+    return true
   }, [play])
 
   const beginDefense = useCallback(() => {
     play(110, 0.45, 0.18, 80)
     phaseRef.current = 'defense'
     lastRef.current = performance.now()
-    setGame(current => ({ ...current, phase: 'defense', defenseElapsed: 0 }))
+    setGame(current => ({
+      ...current,
+      phase: 'defense',
+      defenseElapsed: 0,
+      defenseDuration: durationForDay(current.day),
+      overdriveUntil: 0,
+      overdriveReadyAt: 5,
+      overdriveUsed: false,
+      overdriveCount: 0,
+      repairReadyAt: 3,
+      fieldRepairUntil: 0,
+      fieldRepairCount: 0,
+    }))
   }, [play])
 
   const triggerOverdrive = useCallback(() => {
     if (phaseRef.current !== 'defense') return false
-    let allowed = false
-    setGame(current => {
-      if (current.overdriveUsed || current.defenseElapsed < 5) return current
-      allowed = true
-      return { ...current, overdriveUsed: true, overdriveUntil: current.defenseElapsed + 8, resources: { ...current.resources, power: Math.max(0, current.resources.power - 8) } }
-    })
-    if (allowed) play(620, 0.38, 0.18, 210)
-    else play(180, 0.08, 0.10)
-    return allowed
+    const snapshot = gameRef.current
+    if (snapshot.defenseElapsed < snapshot.overdriveReadyAt || snapshot.overdriveUntil > snapshot.defenseElapsed || snapshot.resources.power < 6) {
+      play(180, 0.08, 0.10)
+      return false
+    }
+    setGame(current => ({
+      ...current,
+      overdriveUsed: true,
+      overdriveCount: current.overdriveCount + 1,
+      overdriveUntil: current.defenseElapsed + 6,
+      overdriveReadyAt: current.defenseElapsed + 11,
+      resources: { ...current.resources, power: current.resources.power - 6 },
+    }))
+    play(620, 0.38, 0.18, 210)
+    return true
+  }, [play])
+
+  const triggerFieldRepair = useCallback(() => {
+    if (phaseRef.current !== 'defense') return false
+    const snapshot = gameRef.current
+    if (snapshot.defenseElapsed < snapshot.repairReadyAt || snapshot.resources.scrap < 4 || snapshot.barricadeHp >= snapshot.barricadeMax) {
+      play(170, 0.08, 0.09)
+      return false
+    }
+    setGame(current => ({
+      ...current,
+      barricadeHp: Math.min(current.barricadeMax, current.barricadeHp + 14),
+      repairReadyAt: current.defenseElapsed + 8,
+      fieldRepairUntil: current.defenseElapsed + 1.1,
+      fieldRepairCount: current.fieldRepairCount + 1,
+      resources: { ...current.resources, scrap: current.resources.scrap - 4 },
+    }))
+    play(260, 0.08, 0.12, 390)
+    window.setTimeout(() => play(520, 0.10, 0.10), 85)
+    return true
   }, [play])
 
   useEffect(() => {
@@ -148,11 +263,12 @@ export function useAfterlight() {
       setGame(current => {
         if (current.phase !== 'defense') return current
         const elapsed = Math.min(current.defenseDuration, current.defenseElapsed + dt)
-        const inGrace = elapsed < 8
+        const inGrace = elapsed < (current.day === 1 ? 8 : 5)
         const overloaded = current.overdriveUntil > elapsed
-        const pressure = elapsed > 5 ? (inGrace ? 0.75 : 2.35) * (overloaded ? 0.38 : 1) : 0
+        const nightPressure = NIGHT_PRESSURE[Math.min(2, current.day - 1)]
+        const pressure = elapsed > 3 ? nightPressure * (inGrace ? 0.4 : 1) * (overloaded ? 0.38 : 1) : 0
         const barricadeHp = Math.max(0, current.barricadeHp - pressure * dt)
-        const coreDamage = barricadeHp <= 0 ? 7.5 * dt : 0
+        const coreDamage = barricadeHp <= 0 ? 7.5 * (1 + (current.day - 1) * 0.18) * dt : 0
         const coreHp = Math.max(0, current.coreHp - coreDamage)
         if (coreHp <= 0) {
           phaseRef.current = 'slice-fail'
@@ -163,7 +279,19 @@ export function useAfterlight() {
           phaseRef.current = 'slice-win'
           if (!muted) chord([392, 523, 659, 784])
           localStorage.setItem('afterlight_tutorial_complete', '1')
-          return { ...current, phase: 'slice-win', defenseElapsed: elapsed, barricadeHp, coreHp, resources: { ...current.resources, morale: Math.min(100, current.resources.morale + 8) } }
+          return {
+            ...current,
+            phase: 'slice-win',
+            defenseElapsed: elapsed,
+            barricadeHp,
+            coreHp,
+            resources: {
+              ...current.resources,
+              power: Math.min(99, current.resources.power + 10),
+              scrap: Math.min(99, current.resources.scrap + 10),
+              morale: Math.min(100, current.resources.morale + 8),
+            },
+          }
         }
         return { ...current, defenseElapsed: elapsed, barricadeHp, coreHp }
       })
@@ -174,9 +302,82 @@ export function useAfterlight() {
     return () => cancelAnimationFrame(rafRef.current)
   }, [game.phase, muted])
 
+  const advanceDay = useCallback(() => {
+    if (phaseRef.current !== 'slice-win') return false
+    if (gameRef.current.day >= 3) return false
+    phaseRef.current = 'day-brief'
+    setGame(current => ({
+      ...current,
+      day: current.day + 1,
+      phase: 'day-brief',
+      defenseElapsed: 0,
+      defenseDuration: durationForDay(current.day + 1),
+      dayUpgrade: undefined,
+      overdriveUntil: 0,
+      fieldRepairUntil: 0,
+    }))
+    play(440, 0.18, 0.12, 620)
+    return true
+  }, [play])
+
+  const chooseDayUpgrade = useCallback((upgrade: DayUpgrade) => {
+    if (phaseRef.current !== 'day-brief') return false
+    if (gameRef.current.resources.scrap < 8) {
+      play(155, 0.10, 0.10)
+      return false
+    }
+    phaseRef.current = 'dusk'
+    setGame(current => {
+      if (upgrade === 'barricade') {
+        const barricadeMax = current.barricadeMax + 20
+        return {
+          ...current,
+          phase: 'dusk',
+          dayUpgrade: upgrade,
+          barricadeMax,
+          barricadeHp: Math.min(barricadeMax, current.barricadeHp + 30),
+          resources: { ...current.resources, scrap: current.resources.scrap - 8 },
+        }
+      }
+      return {
+        ...current,
+        phase: 'dusk',
+        dayUpgrade: upgrade,
+        resources: {
+          ...current.resources,
+          scrap: current.resources.scrap - 8,
+          power: Math.min(99, current.resources.power + 22),
+        },
+      }
+    })
+    play(upgrade === 'barricade' ? 340 : 560, 0.20, 0.14, 720)
+    return true
+  }, [play])
+
+  const retryNight = useCallback(() => {
+    if (phaseRef.current !== 'slice-fail') return
+    phaseRef.current = 'dusk'
+    setGame(current => ({
+      ...current,
+      phase: 'dusk',
+      coreHp: Math.max(60, current.coreHp),
+      barricadeHp: Math.max(Math.min(current.barricadeMax, 55), current.barricadeHp),
+      resources: {
+        ...current.resources,
+        power: Math.max(12, current.resources.power),
+        scrap: Math.max(8, current.resources.scrap),
+      },
+      defenseElapsed: 0,
+      overdriveUntil: 0,
+      fieldRepairUntil: 0,
+    }))
+    play(260, 0.16, 0.12, 420)
+  }, [play])
+
   const restart = useCallback(() => {
     cancelAnimationFrame(rafRef.current)
     cancelAnimationFrame(assignmentRafRef.current)
+    cancelAnimationFrame(repairRafRef.current)
     assignmentTimersRef.current.forEach(window.clearTimeout)
     assignmentTimersRef.current = []
     phaseRef.current = 'intro'
@@ -185,6 +386,7 @@ export function useAfterlight() {
 
   useEffect(() => () => {
     cancelAnimationFrame(assignmentRafRef.current)
+    cancelAnimationFrame(repairRafRef.current)
     assignmentTimersRef.current.forEach(window.clearTimeout)
   }, [])
 
@@ -204,5 +406,5 @@ export function useAfterlight() {
     })
   }, [])
 
-  return { game, muted, start, skipTutorial, rescue, assignWorker, continueToRepair, repairBarricade, beginDefense, triggerOverdrive, restart, replayHint, toggleMuted }
+  return { game, muted, start, skipTutorial, rescue, assignWorker, continueToRepair, repairBarricade, beginDefense, triggerOverdrive, triggerFieldRepair, advanceDay, chooseDayUpgrade, retryNight, restart, replayHint, toggleMuted }
 }

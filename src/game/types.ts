@@ -6,6 +6,8 @@ export type Phase =
   | 'assigning'
   | 'production-proof'
   | 'repair-guide'
+  | 'repairing'
+  | 'day-brief'
   | 'dusk'
   | 'defense'
   | 'slice-win'
@@ -18,17 +20,28 @@ export type Resources = {
   morale: number
 }
 
+export type DayUpgrade = 'barricade' | 'battery'
+
 export type GameSnapshot = {
   phase: Phase
+  day: number
   resources: Resources
   rescued: boolean
   assigned: boolean
   barricadeHp: number
+  barricadeMax: number
   coreHp: number
   rescueProgress: number
   assignmentProgress: number
+  repairProgress: number
   defenseElapsed: number
   defenseDuration: number
   overdriveUntil: number
+  overdriveReadyAt: number
   overdriveUsed: boolean
+  overdriveCount: number
+  repairReadyAt: number
+  fieldRepairUntil: number
+  fieldRepairCount: number
+  dayUpgrade?: DayUpgrade
 }

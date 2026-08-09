@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "findings": [],
+  "metrics": {
+    "phase": "slice-win",
+    "day": "3",
+    "width": 390,
+    "scrollWidth": 390,
+    "height": 844,
+    "scrollHeight": 844
+  }
+}

@@ -423,6 +423,32 @@ button:focus-visible { outline: 3px solid #fff7dc; outline-offset: 3px; }
 .ad-skill--ready > svg { color: #fff; background: rgba(54,137,57,.18); border-color: rgba(255,255,255,.65); }
 .ad-skill--ready span b,.ad-skill--ready span small { color: #fff; }
 .ad-skill:disabled { opacity: .78; filter: saturate(.72); }
+
+/* Between-night choice stays inside the character-led presentation, but the
+   two strategies remain separate physical controls with explicit costs. */
+.ad-dialogue:has(.ad-choice-grid) { min-height: 226px; }
+.ad-choice-label { display: block; margin: 10px 0 6px; color: var(--toy-muted); font-size: 9px; font-weight: 900; letter-spacing: .08em; }
+.ad-choice-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+.ad-choice-grid button { min-width: 0; min-height: 68px; padding: 7px 5px; display: grid; grid-template-columns: 22px minmax(0,1fr); grid-template-rows: auto auto; align-items: center; column-gap: 5px; color: #fff; background: linear-gradient(#67d1f5,#35afe5); border: 2px solid var(--toy-outline); border-radius: 11px; box-shadow: inset 0 2px 0 rgba(255,255,255,.48),0 3px 0 var(--toy-blue-deep),0 5px 0 var(--toy-outline); text-align: left; }
+.ad-choice-grid button:first-child { background: linear-gradient(#95e879,#63c84d); box-shadow: inset 0 2px 0 rgba(255,255,255,.48),0 3px 0 #409c43,0 5px 0 var(--toy-outline); }
+.ad-choice-grid button:active { transform: translateY(3px); box-shadow: inset 0 1px 0 rgba(255,255,255,.28),0 1px 0 var(--toy-outline); }
+.ad-choice-grid button:disabled { opacity: .55; filter: saturate(.55); }
+.ad-choice-grid svg { grid-row: 1 / 3; width: 19px; justify-self: center; }
+.ad-choice-grid b { min-width: 0; font-size: 11px; line-height: 1.12; }
+.ad-choice-grid small { min-width: 0; font-size: 8px; line-height: 1.15; opacity: .88; }
+
+/* Night defense is an active two-tool loop. The tray owns placement; each
+   skill remains stable while its copy explains cooldown/resource state. */
+.ad-defense-actions { position: absolute; z-index: 22; left: 12px; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.ad-defense-actions .ad-skill { position: relative; inset: auto; min-width: 0; min-height: 70px; grid-template-columns: 38px minmax(0,1fr); column-gap: 7px; justify-content: stretch; padding: 6px 8px; }
+.ad-defense-actions .ad-skill > svg { width: 36px; height: 36px; padding: 8px; }
+.ad-defense-actions .ad-skill span { min-width: 0; }
+.ad-defense-actions .ad-skill span b { font-size: 13px; line-height: 1.08; }
+.ad-defense-actions .ad-skill span small { min-height: 20px; font-size: 8px; line-height: 1.15; }
+.ad-defense-actions .ad-skill:first-child.ad-skill--ready { background: linear-gradient(#6bd3f5,#36afe3); }
+.ad-defense-actions .ad-skill--repair.ad-skill--ready { background: linear-gradient(#95e879,#63c84d); }
+.ad-repair-pop { position: absolute; z-index: 24; left: 55%; top: 47%; padding: 5px 9px; color: #fff; background: var(--toy-green-deep); border: 2px solid var(--toy-outline); border-radius: 9px; box-shadow: 0 3px 0 var(--toy-outline); font-weight: 900; animation: ad-repair-pop .9s ease-out both; pointer-events: none; }
+@keyframes ad-repair-pop { 0% { opacity: 0; transform: translateY(10px) scale(.82); } 22% { opacity: 1; transform: translateY(0) scale(1.06); } 100% { opacity: 0; transform: translateY(-22px) scale(1); } }
 .ad-comms { color: var(--toy-text); background: linear-gradient(#fff1d2,#f5d0a5); border: 2px solid var(--toy-outline); border-top: 2px solid var(--toy-outline); border-radius: 15px; box-shadow: inset 0 2px 0 rgba(255,255,255,.62),var(--toy-shadow); }
 .ad-comms img { filter: drop-shadow(0 4px 0 rgba(73,54,68,.28)); }
 .ad-comms p { color: var(--toy-text); font-weight: 800; }
@@ -462,6 +488,13 @@ button:focus-visible { outline: 3px solid #fff7dc; outline-offset: 3px; }
   .ad-dialogue--top .ad-dialogue__portrait { width: 82px; height: 98px; }
   .ad-dialogue::before { left: 104px; }
   .ad-dialogue__copy > p { font-size: 14px; }
+  .ad-dialogue:has(.ad-choice-grid) { min-height: 190px; }
+  .ad-choice-label { margin-top: 7px; }
+  .ad-choice-grid button { min-height: 60px; }
+  .ad-choice-grid b { font-size: 10px; }
+  .ad-defense-actions .ad-skill { min-height: 62px; grid-template-columns: 34px minmax(0,1fr); padding: 5px 6px; }
+  .ad-defense-actions .ad-skill > svg { width: 32px; height: 32px; padding: 7px; }
+  .ad-defense-actions .ad-skill span b { font-size: 11px; }
   .ad-result__mark { width: 42px; height: 34px; }
 }
 

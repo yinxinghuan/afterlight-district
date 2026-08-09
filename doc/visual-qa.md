@@ -5,7 +5,7 @@
 - Review target：15×18 连续大地面、深化建筑、完整三值灯光、GTAO/Bloom 后处理、角色接地、卡通街区防线 UI、夜战和窄屏构图。
 - Requirements / visual bible：`doc/requirements.md`、`doc/visual.md`。
 - Viewports：390×844、320×568、512×672；主构图均为 platform-layout。
-- Evidence：`_qa/ui/390x844-platform-layout-*.png`、`_qa/ui/320x568-platform-layout-*.png`、`_qa/ui/512x672-platform-layout-*.png`、`_qa/ui/assignment-motion/`、`_qa/ui/render-upgrade-before/`、`_qa/ui/capture-findings.json`。
+- Evidence：`_qa/ui/390x844-platform-layout-*.png`、`_qa/ui/320x568-platform-layout-*.png`、`_qa/ui/512x672-platform-layout-*.png`、`_qa/ui/assignment-motion/`、`_qa/ui/three-night/`、`_qa/ui/responsive/`、`_qa/ui/capture-findings.json`。
 - Model-state evidence：`node _qa/verify-signal-house.mjs`；共享库存 `98/98`，scene `15`；独立环境美术复审 v4 PASS。
 
 ## Executive assessment
@@ -66,6 +66,12 @@ Final average：4.64 / 5；无类别低于 4。
 33. P1，全局信息仍在阶段切换时成批进入：对搜救、分工、首次产出、修复、黄昏、技能教学与结算逐项做新增信息审计。最终建立场内演出→人物卡→目标→操作接力；分工目标先于居民卡 900ms；`+3` 奖励退出后才显示对白；黄昏灯区先于人物卡；技能直到口令后开放；结算按结果/统计/重玩三拍显示。matched evidence 覆盖两尺寸前期流程以及 390×844 修复、黄昏、夜战、结算，`capture-findings.json` 为 0 findings。
 34. P1，正确分配后人物瞬移到工作台：原 `assignWorker()` 同帧写入 `assigned=true`，场景位置直接从门外切到岗位，只有到岗后的 `work` 肢体循环，没有走过去的因果演出。新增独立 `assigning` phase、2.8 秒转身/三段开放路径/到岗转向、普通人反相步态和五个路径脚步点；到岗前不点亮供电、不增加废料、不显示生产对白。首轮路径从屋后经过，角色被维修棚屋顶遮住且文字进度卡抢占视线；matched recheck 将起点移到开放道路集合点并取消文字卡。第二轮又发现绝对墙钟在低帧率下会一帧跳到终点，最终改为单帧最多推进 100ms。`_qa/ui/assignment-motion/report.json` 在 390×844 的 10.7% / 35.7% / 64.3% / 92.9% / 工作五帧、320×568 中点/工作和 reduced-motion 中点共 8 份证据中返回 0 findings；完整拖拽流程两尺寸与 external-guest 复查同样为 0 findings。
 35. P1，平台中等窗口出现蓝色边带：游戏主体硬限制为 460px，而用户截图中的宿主游戏区域约为 512×672 CSS px，左右各留下约 26px 平台底色，高分屏截图中扩大为明显的 52px 边带。移除固定 460px / 920px 上限，改为竖屏与中等窗口 `min(100%, 86dvh)` 全宽、只有 6:5 以上横屏才居中描边；同时为 QA 增加 `.ad-game` bounding-box 断言和 512×672 完整阶段证据。`512x672-platform-layout-defense-ready / overdrive / slice-win-outcome` 显示场景、HUD、通讯与底部技能键均贴合主体且无裁切；390×844、320×568 matched recheck 与 512×672 最终报告均为 0 findings。
+
+36. P1，修路障缺少人物因果：原操作直接扣废料并进入黄昏，没有“谁去哪里做什么”。新增独立 `repairing` phase、3.4 秒四点道路路径、脚步声和到达后的施工动作；390×844 的 `repairing-departure / repairing-approach` 显示人物位置明确变化，抵达前不会切换阶段。
+37. P0，第一夜结算被误当成完整结局：原 `restart()` 从 `slice-win` 直接回到开场，需求中的三夜没有实现。改为第一、二夜进入 `day-brief` 升级选择，第三夜才显示最终胜利；`_qa/capture-three-night.mjs` 实际跑完三夜并断言 `phase=slice-win, day=3`。
+38. P1，防御只剩一次点击：原过载使用后没有可持续决策。改为 6 电力/6 秒/11 秒冷却的可重复过载，并加入 4 废料/+14 耐久/8 秒冷却的现场抢修；第一夜证据包含第二次过载，三夜均实际触发两类操作。
+39. P1，地形底板边缘仍进入画面：早期只把低位底板放大，没有处理正式 15×18u 草面本身的斜边。最终在道路下方同高延伸 80×80u 同色草面并复用宏观明度贴图；320×568 的黄昏、防御镜头不再出现底板断面或斜向地块边缘。
+40. P1，新增跨日 UI 在窄屏可能挤压：新增 320×568 定向脚本覆盖第二天升级、黄昏和双战术按钮；最终 `width/scrollWidth=320/320`、`height/scrollHeight=568/568`，底部两个按钮均存在。
 
 ## Foundation and build gates
 

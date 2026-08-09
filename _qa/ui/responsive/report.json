@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "findings": [],
+  "metrics": {
+    "width": 320,
+    "scrollWidth": 320,
+    "height": 568,
+    "scrollHeight": 568,
+    "actionButtons": 2
+  }
+}

@@ -8,7 +8,10 @@ const findings = []
 const forcedLocale = process.env.QA_LOCALE
 const forcedQuality = process.env.QA_RENDER_QUALITY
 const guideTimeScale = Math.max(1, Number(process.env.QA_GUIDE_TIME_SCALE || 1))
-const gameUrl = forcedQuality ? `http://127.0.0.1:5173/?render_quality=${forcedQuality}` : 'http://127.0.0.1:5173/'
+const query = new URLSearchParams()
+if (forcedQuality) query.set('render_quality', forcedQuality)
+if (process.env.QA_NIGHT_SECONDS) query.set('qa_night_seconds', process.env.QA_NIGHT_SECONDS)
+const gameUrl = `http://127.0.0.1:5173/${query.size ? `?${query}` : ''}`
 
 function isManagedShellTelemetryError(text, url = '') {
   return text.includes('aigram.aiwaves.tech/note/aigram/ai/game/track/report') || url.includes('aigram.aiwaves.tech/note/aigram/ai/game/track/report')
@@ -83,7 +86,12 @@ async function primaryFlow(width, height, label, full = true) {
     await page.waitForSelector('[data-guide-phase="repair-guide"][data-guide-beat="3"]')
     await page.screenshot({ path: new URL(`${label}-platform-layout-repair-guide.png`, root).pathname })
     await page.getByRole('button', { name: /修复路障|Repair barricade/ }).click()
-    await page.waitForSelector('[data-guide-phase="dusk"][data-guide-beat="0"]')
+    await page.waitForSelector('[data-guide-phase="repairing"]')
+    await page.waitForFunction(() => Number(document.querySelector('.ad-game')?.getAttribute('data-repair-progress')) >= 0.20, undefined, { timeout: 45000 })
+    await page.screenshot({ path: new URL(`${label}-platform-layout-repairing-departure.png`, root).pathname })
+    await page.waitForFunction(() => Number(document.querySelector('.ad-game')?.getAttribute('data-repair-progress')) >= 0.65, undefined, { timeout: 45000 })
+    await page.screenshot({ path: new URL(`${label}-platform-layout-repairing-approach.png`, root).pathname })
+    await page.waitForSelector('[data-guide-phase="dusk"]')
     await page.screenshot({ path: new URL(`${label}-platform-layout-dusk-scene.png`, root).pathname })
     await page.waitForSelector('[data-guide-phase="dusk"][data-guide-beat="1"]')
     await page.screenshot({ path: new URL(`${label}-platform-layout-dusk.png`, root).pathname })
@@ -93,7 +101,7 @@ async function primaryFlow(width, height, label, full = true) {
     await page.getByRole('button', { name: /路灯过载|Overload lights/ }).click()
     await page.waitForTimeout(650)
     await page.screenshot({ path: new URL(`${label}-platform-layout-overdrive.png`, root).pathname })
-    await page.waitForSelector('.ad-result', { timeout: 40000 })
+    await page.waitForSelector('.ad-result', { timeout: 60000 })
     const resultKind = await page.locator('.ad-result--win').count() ? 'slice-win' : 'slice-fail'
     await page.screenshot({ path: new URL(`${label}-platform-layout-${resultKind}-outcome.png`, root).pathname })
     await page.waitForSelector(`[data-guide-phase="${resultKind}"]:not([data-guide-beat="0"])`)
