@@ -23,12 +23,14 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body, #root { width: 100%; min-height: 100%; background: var(--ink-deep); overflow: hidden; }
+html, body, #root { width: 100%; height: 100%; min-height: 0; background: var(--ink-deep); overflow: hidden; }
 button { color: inherit; font: inherit; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 button:focus-visible { outline: 2px solid var(--paper); outline-offset: 3px; }
 
-.ad-shell { width: 100vw; height: 100dvh; display: grid; place-items: center; background: radial-gradient(circle at 50% 42%, #19252b 0, #050a0d 74%); overflow: hidden; }
-.ad-game { position: relative; width: min(100vw, 460px); height: 100dvh; max-height: 920px; overflow: hidden; isolation: isolate; background: var(--ink); }
+.ad-shell { width: 100%; height: 100dvh; min-height: 100%; display: grid; place-items: center; background: radial-gradient(circle at 50% 42%, #19252b 0, #050a0d 74%); overflow: hidden; }
+/* Fill portrait and intermediate host windows. Only very wide viewports retain a
+   centered playfield so the orthographic scene never stretches into a banner. */
+.ad-game { position: relative; width: min(100%, 86dvh); height: 100%; overflow: hidden; isolation: isolate; background: var(--ink); }
 .ad-scene { position: absolute; inset: 0; z-index: 0; }
 .ad-vignette { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(5,10,13,.48) 0, transparent 17%, transparent 71%, rgba(5,10,13,.56) 100%), radial-gradient(circle at 50% 48%, transparent 55%, rgba(3,7,9,.22) 100%); }
 
@@ -463,5 +465,5 @@ button:focus-visible { outline: 3px solid #fff7dc; outline-offset: 3px; }
   .ad-result__mark { width: 42px; height: 34px; }
 }
 
-@media (min-width: 461px) { .ad-game { border-inline: 2px solid var(--toy-outline); } }
+@media (orientation: landscape) and (min-aspect-ratio: 6 / 5) { .ad-game { border-inline: 2px solid var(--toy-outline); } }
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }

@@ -44,7 +44,7 @@ async function primaryFlow(width, height, label, full = true) {
   await page.screenshot({ path: new URL(`${label}-platform-layout-rescuing.png`, root).pathname })
   await page.waitForTimeout(1400)
   await page.screenshot({ path: new URL(`${label}-platform-layout-rescuing-emergence.png`, root).pathname })
-  await page.waitForSelector('[data-guide-phase="assign-guide"][data-guide-beat="0"]', { timeout: 7000 })
+  await page.waitForSelector('[data-guide-phase="assign-guide"]', { timeout: 12000 })
   await page.screenshot({ path: new URL(`${label}-platform-layout-assign-scene.png`, root).pathname })
   await page.waitForSelector('[data-guide-phase="assign-guide"][data-guide-beat="1"]')
   await page.screenshot({ path: new URL(`${label}-platform-layout-assign-context.png`, root).pathname })
@@ -96,13 +96,28 @@ async function primaryFlow(width, height, label, full = true) {
     await page.waitForSelector('.ad-result', { timeout: 40000 })
     const resultKind = await page.locator('.ad-result--win').count() ? 'slice-win' : 'slice-fail'
     await page.screenshot({ path: new URL(`${label}-platform-layout-${resultKind}-outcome.png`, root).pathname })
-    await page.waitForSelector(`[data-guide-phase="${resultKind}"][data-guide-beat="1"]`)
+    await page.waitForSelector(`[data-guide-phase="${resultKind}"]:not([data-guide-beat="0"])`)
     await page.screenshot({ path: new URL(`${label}-platform-layout-${resultKind}-stats.png`, root).pathname })
     await page.waitForSelector(`[data-guide-phase="${resultKind}"][data-guide-beat="2"]`)
     await page.screenshot({ path: new URL(`${label}-platform-layout-${resultKind}.png`, root).pathname })
   }
-  const metrics = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth, height: innerHeight, scrollHeight: document.documentElement.scrollHeight }))
+  const metrics = await page.evaluate(() => {
+    const gameRect = document.querySelector('.ad-game')?.getBoundingClientRect()
+    return {
+      width: innerWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      height: innerHeight,
+      scrollHeight: document.documentElement.scrollHeight,
+      gameLeft: gameRect?.left,
+      gameWidth: gameRect?.width,
+      gameHeight: gameRect?.height,
+    }
+  })
   if (metrics.scrollWidth !== metrics.width) findings.push(`${label}: horizontal overflow ${JSON.stringify(metrics)}`)
+  if (width / height <= 0.86 && (Math.abs((metrics.gameLeft ?? 0)) > 0.5 || Math.abs((metrics.gameWidth ?? 0) - width) > 0.5)) {
+    findings.push(`${label}: portrait playfield did not fill host width ${JSON.stringify(metrics)}`)
+  }
+  if (Math.abs((metrics.gameHeight ?? 0) - height) > 0.5) findings.push(`${label}: playfield did not fill host height ${JSON.stringify(metrics)}`)
   await page.close()
 }
 
@@ -110,8 +125,11 @@ const quick = process.env.QA_QUICK === '1'
 const fullNarrow = process.env.QA_FULL_NARROW === '1'
 const skipWide = process.env.QA_SKIP_WIDE === '1'
 const skipNarrow = process.env.QA_SKIP_NARROW === '1'
+const runIntermediate = process.env.QA_INTERMEDIATE === '1'
+const fullIntermediate = process.env.QA_INTERMEDIATE_FULL !== '0'
 if (!skipWide) await primaryFlow(390, 844, '390x844', !quick)
 if (!skipNarrow) await primaryFlow(320, 568, '320x568', fullNarrow)
+if (runIntermediate) await primaryFlow(512, 672, '512x672', fullIntermediate)
 
 const external = await browser.newPage({ viewport: { width: 390, height: 844 } })
 await external.goto(gameUrl, { waitUntil: 'networkidle' })
