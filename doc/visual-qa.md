@@ -5,7 +5,7 @@
 - Review target：15×18 连续大地面、深化建筑、完整三值灯光、GTAO/Bloom 后处理、角色接地、卡通街区防线 UI、夜战和窄屏构图。
 - Requirements / visual bible：`doc/requirements.md`、`doc/visual.md`。
 - Viewports：390×844、320×568、512×672；主构图均为 platform-layout。
-- Evidence：`_qa/ui/390x844-platform-layout-*.png`、`_qa/ui/320x568-platform-layout-*.png`、`_qa/ui/512x672-platform-layout-*.png`、`_qa/ui/assignment-motion/`、`_qa/ui/three-night/`、`_qa/ui/responsive/`、`_qa/ui/capture-findings.json`。
+- Evidence：`_qa/ui/390x844-platform-layout-*.png`、`_qa/ui/320x568-platform-layout-*.png`、`_qa/ui/512x672-platform-layout-*.png`、`_qa/ui/assignment-motion/`、`_qa/ui/three-night/`、`_qa/ui/endless/`、`_qa/ui/responsive/`、`_qa/ui/capture-findings.json`。
 - Model-state evidence：`node _qa/verify-signal-house.mjs`；共享库存 `98/98`，scene `15`；独立环境美术复审 v4 PASS。
 
 ## Executive assessment
@@ -72,6 +72,7 @@ Final average：4.64 / 5；无类别低于 4。
 38. P1，防御只剩一次点击：原过载使用后没有可持续决策。改为 6 电力/6 秒/11 秒冷却的可重复过载，并加入 4 废料/+14 耐久/8 秒冷却的现场抢修；第一夜证据包含第二次过载，三夜均实际触发两类操作。
 39. P1，地形底板边缘仍进入画面：早期只把低位底板放大，没有处理正式 15×18u 草面本身的斜边。最终在道路下方同高延伸 80×80u 同色草面并复用宏观明度贴图；320×568 的黄昏、防御镜头不再出现底板断面或斜向地块边缘。
 40. P1，新增跨日 UI 在窄屏可能挤压：新增 320×568 定向脚本覆盖第二天升级、黄昏和双战术按钮；最终 `width/scrollWidth=320/320`、`height/scrollHeight=568/568`，底部两个按钮均存在。
+41. P0，三夜完整短局仍不满足无限延续方向：移除 `day===3` 最终分支和 `advanceDay()` 的三夜上限，时长、压力、敌人数、速度改为带性能上限的夜数公式；第三夜结算明确提供“进入第 4 天”。`_qa/capture-endless.mjs` 从第一夜实际完成五次防守、五次结算和四次升级，最终进入 `day=6 / day-brief`；`_qa/capture-three-night.mjs` 同时验证第三夜边界和第一夜第二次过载，两个报告均为 0 findings。
 
 ## Foundation and build gates
 

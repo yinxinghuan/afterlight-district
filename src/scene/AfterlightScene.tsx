@@ -616,7 +616,7 @@ function Enemy({ index, kind, game }: { index: number; kind: 'husk' | 'stalker';
   useFrame(() => {
     if (!group.current || game.phase !== 'defense') return
     const slowed = game.overdriveUntil > game.defenseElapsed
-    const nightMultiplier = 1 + (game.day - 1) * 0.11
+    const nightMultiplier = Math.min(1.9, 1 + (game.day - 1) * 0.11)
     const speed = (kind === 'stalker' ? 0.42 : 0.31) * nightMultiplier * (slowed ? 0.42 : 1)
     const travel = Math.max(0, game.defenseElapsed * speed - waveRow * 1.25)
     // Keep the whole first wave in the playable camera volume. They advance from
@@ -788,7 +788,7 @@ function District({ game, quality, guideBeat }: { game: GameSnapshot; quality: Q
           <GroundLightPool position={[0, 0.38, -1.94]} color="#55c8bd" size={[2.5, 1.8]} opacity={powered ? 0.11 : 0.02} />
         </>}
         {defenseVisible && <>
-          <Asset assetId="barricade" outlineRole={game.phase === 'repair-guide' || game.phase === 'repairing' ? 'target' : undefined} position={[0, 0.32, 3.42]} rotation={[0, 0.02, 0]} scale={[1.62 + (game.barricadeMax - 100) * 0.008, 1, 1]} />
+          <Asset assetId="barricade" outlineRole={game.phase === 'repair-guide' || game.phase === 'repairing' ? 'target' : undefined} position={[0, 0.32, 3.42]} rotation={[0, 0.02, 0]} scale={[Math.min(2.5, 1.62 + (game.barricadeMax - 100) * 0.008), 1, 1]} />
           <Asset assetId="relayLamp" outlineRole={game.phase === 'defense' ? 'target' : undefined} position={[-2.22, 0.48, 2.02]} scale={0.68} />
           <Asset assetId="relayLamp" outlineRole={game.phase === 'defense' ? 'target' : undefined} position={[2.30, 0.38, 2.12]} rotation={[0, Math.PI, 0]} scale={0.68} />
           <LocalLight position={[-2.22, 1.56, 2.02]} color={overdrive ? '#70d4c8' : '#ffd58a'} intensity={overdrive ? 18 : 13} distance={4.0} pulse={overdrive ? 0.08 : 0.02} />
@@ -815,7 +815,7 @@ function District({ game, quality, guideBeat }: { game: GameSnapshot; quality: Q
           scale={0.35}
           rotation={[0, linEmerging ? -1.15 : game.phase === 'assigning' ? linAssignmentPose.rotation : game.phase === 'repairing' ? linRepairPose.rotation : linAtBarricade ? 0.08 : game.assigned ? 0.8 : 2.2, 0]}
         />}
-        {Array.from({ length: 8 + (game.day - 1) * 4 }, (_, index) => <Enemy key={index} index={index} kind={index % Math.max(3, 7 - game.day) === 0 ? 'stalker' : 'husk'} game={game} />)}
+        {Array.from({ length: Math.min(28, 8 + (game.day - 1) * 4) }, (_, index) => <Enemy key={index} index={index} kind={index % Math.max(3, 7 - game.day) === 0 ? 'stalker' : 'husk'} game={game} />)}
 
         {game.phase === 'rescue-guide' && guideBeat === 0 && <Html position={[-3.24, 1.92, -3.16]} center><span className="ad-world-speech">{t('workerHelp')}</span></Html>}
         {game.phase === 'rescue-guide' && guideBeat >= 2 && <Html position={[-3.24, 2.18, -3.78]} center distanceFactor={8}><span className="ad-world-ping" /></Html>}

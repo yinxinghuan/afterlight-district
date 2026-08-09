@@ -26,7 +26,7 @@ function Objective({ step, text }: { step: string; text: string }) {
 }
 
 export default function App() {
-  const { game, muted, start, skipTutorial, rescue, assignWorker, continueToRepair, repairBarricade, beginDefense, triggerOverdrive, triggerFieldRepair, advanceDay, chooseDayUpgrade, retryNight, restart, replayHint, toggleMuted } = useAfterlight()
+  const { game, muted, start, skipTutorial, rescue, assignWorker, continueToRepair, repairBarricade, beginDefense, triggerOverdrive, triggerFieldRepair, advanceDay, chooseDayUpgrade, retryNight, replayHint, toggleMuted } = useAfterlight()
   const { active, progress } = useProgress()
   const [drag, setDrag] = useState<{ x: number; y: number; ox: number; oy: number } | null>(null)
   const [dropError, setDropError] = useState(false)
@@ -217,10 +217,10 @@ export default function App() {
         {(game.phase === 'slice-win' || game.phase === 'slice-fail') && <section className={`ad-result ad-result--${game.phase === 'slice-win' ? 'win' : 'fail'}`}>
           <div className="ad-result__mark">{game.phase === 'slice-win' ? <><i /><i /><i /></> : <><i /><i /></>}</div>
           <span>{game.phase === 'slice-win' ? dawnLabel(game.day) : t('signalLost')}</span>
-          <h2>{game.phase === 'slice-win' ? game.day === 3 ? t('finalWinTitle') : nightSurvivedTitle(game.day) : t('failTitle')}</h2>
-          <p>{game.phase === 'slice-win' ? game.day === 3 ? t('finalWinBody') : t('winBody') : t('failBody')}</p>
+          <h2>{game.phase === 'slice-win' ? nightSurvivedTitle(game.day) : t('failTitle')}</h2>
+          <p>{game.phase === 'slice-win' ? t('winBody') : t('failBody')}</p>
           {guideBeat >= 1 && <div className="ad-result__stats ad-reveal-step"><b>{Math.ceil(game.coreHp)}</b><small>{t('core')}</small><b>{Math.ceil(game.barricadeHp)}</b><small>{t('barricade')}</small><b>{Math.round(game.resources.morale)}</b><small>{t('morale')}</small></div>}
-          {guideBeat >= 2 && <button className="ad-primary ad-reveal-step" onPointerDown={game.phase === 'slice-fail' ? retryNight : game.day < 3 ? advanceDay : restart}>{game.phase === 'slice-fail' ? t('retry') : game.day < 3 ? nextDayLabel(game.day + 1) : t('replay')}</button>}
+          {guideBeat >= 2 && <button className="ad-primary ad-reveal-step" onPointerDown={game.phase === 'slice-fail' ? retryNight : advanceDay}>{game.phase === 'slice-fail' ? t('retry') : nextDayLabel(game.day + 1)}</button>}
         </section>}
 
         {active && progress < 100 && <div className="ad-loading"><span>{t('loading')}</span><i><b style={{ width: `${progress}%` }} /></i></div>}

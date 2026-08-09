@@ -66,8 +66,11 @@ for (let day = 1; day <= 3; day += 1) {
   }
 }
 
-const finalTitle = await page.getByRole('heading').textContent()
-if (!finalTitle?.includes('三夜')) findings.push(`final title did not confirm three nights: ${finalTitle}`)
+const thirdNightTitle = await page.getByRole('heading').textContent()
+if (!thirdNightTitle?.includes('第 3 夜')) findings.push(`third-night result missing: ${thirdNightTitle}`)
+await page.getByRole('button', { name: '进入第 4 天' }).click()
+await page.waitForSelector('[data-guide-phase="day-brief"][data-day="4"][data-guide-beat="1"]', { timeout: 5000 })
+await page.screenshot({ path: new URL('day-4-upgrade-platform-layout.png', root).pathname })
 const metrics = await page.evaluate(() => ({
   phase: document.querySelector('.ad-game')?.getAttribute('data-guide-phase'),
   day: document.querySelector('.ad-game')?.getAttribute('data-day'),
@@ -76,7 +79,7 @@ const metrics = await page.evaluate(() => ({
   height: innerHeight,
   scrollHeight: document.documentElement.scrollHeight,
 }))
-if (metrics.phase !== 'slice-win' || metrics.day !== '3') findings.push(`three-night progression incomplete: ${JSON.stringify(metrics)}`)
+if (metrics.phase !== 'day-brief' || metrics.day !== '4') findings.push(`third-night boundary did not continue: ${JSON.stringify(metrics)}`)
 if (metrics.width !== metrics.scrollWidth) findings.push(`horizontal overflow: ${JSON.stringify(metrics)}`)
 
 await fs.writeFile(new URL('report.json', root), JSON.stringify({ ok: findings.length === 0, findings, metrics }, null, 2))

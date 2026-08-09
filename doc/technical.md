@@ -11,7 +11,7 @@
 ## 2. 目录结构
 
 - `src/App.tsx`：屏幕编排、HUD、角色立绘对话、逐步引导、拖拽上岗、夜袭操作与结算。
-- `src/game/useAfterlight.ts`：三日状态机、资源变化、32/36/40 秒防守循环、昼间升级、可重复战术操作、胜负判定与音效事件。
+- `src/game/useAfterlight.ts`：无限昼夜状态机、资源变化、32–60 秒动态防守循环、每日升级、可重复战术操作、胜负判定与音效事件。
 - `src/game/types.ts`：阶段、资源与快照类型。
 - `src/scene/AfterlightScene.tsx`：GLB 清单、无边缘街区搭建、分阶段设施显隐与相机导演、角色动作、场内对白、敌人推进、局部光源、供电线与昼夜灯光。
 - `src/i18n/index.ts`：中文/英文检测和文案表。
@@ -27,7 +27,7 @@
 
 ### 状态管理与主循环
 
-`useAfterlight()` 维护 `intro → rescue-guide → rescuing → assign-guide → assigning → production-proof → repair-guide → repairing → dusk → defense → slice-win/slice-fail`，第一、二夜胜利后通过 `day-brief` 进入下一天，第三夜胜利才是完整结局。搜救、分工与修复 phase 内部再由界面 beat 区分“理解目标”和“执行动作”，只有真实玩法动作会推进 phase。正确分配先进入 `assigning`，`assignmentProgress` 从 0 到 1 驱动角色转身、三段路径与到岗转向；到达前 `assigned` 保持 false，因此供电、奖励和生产对白都不会提前。路障修复进入独立的 3.4 秒 `repairing` phase：林沿四点道路路径走到路障，抵达后施工，完成时才进入黄昏。三夜分别持续 32/36/40 秒并逐夜增压；第一夜前 8 秒、后续夜晚前 5 秒为缓冲期。路灯过载消耗 6 电力、持续 6 秒、冷却 11 秒，可在同一夜重复使用；现场抢修消耗 4 废料、恢复 14 路障、冷却 8 秒。第二、三天分别提供“加固路障”和“扩充电池”二选一升级。
+`useAfterlight()` 维护 `intro → rescue-guide → rescuing → assign-guide → assigning → production-proof → repair-guide → repairing → dusk → defense → slice-win/slice-fail`；任意夜胜利都通过 `day-brief` 进入下一天，不存在固定终夜。搜救、分工与修复 phase 内部再由界面 beat 区分“理解目标”和“执行动作”，只有真实玩法动作会推进 phase。正确分配先进入 `assigning`，`assignmentProgress` 从 0 到 1 驱动角色转身、三段路径与到岗转向；到达前 `assigned` 保持 false，因此供电、奖励和生产对白都不会提前。路障修复进入独立的 3.4 秒 `repairing` phase：林沿四点道路路径走到路障，抵达后施工，完成时才进入黄昏。第 `n` 夜时长为 `min(60, 28+4n)` 秒，压力为 `min(12.55, 2.35+0.85(n-1))`；第一夜前 8 秒、后续夜晚前 5 秒为缓冲期。路灯过载消耗 6 电力、持续 6 秒、冷却 11 秒，可在同一夜重复使用；现场抢修消耗 4 废料、恢复 14 路障、冷却 8 秒。从第二天起每天提供“加固路障”和“扩充电池”二选一升级。
 
 ### 屏幕适配与输入
 
@@ -35,13 +35,13 @@
 
 教学 UI 采用“卡通街区防线”系统，信息顺序固定为铆钉阶段牌/奶油资源托盘、浅色任务条、角色人物卡和世界目标。`Objective` 只在搜救、分工和修复三个教学状态出现；阶段牌、任务条、人物卡、居民岗位卡、蓝色技能键和奶油成绩牌分别使用不同结构，但共享近 2px 深可可紫描边、1px 内分隔、暖白内高光与 3–5px 短底托。第二轮精修统一了外框/底托厚度、资源图标的分色底章、姓名签、按钮顶部高光、按下位移和禁用层级，去掉会让卡片显得像多层塑料壳的重阴影。状态以天空蓝主行动、叶绿完成和珊瑚红警告共同编码，并保留文字或形状差异。`Dialogue`、居民卡与夜战通讯统一读取 `public/portraits/` 的 GLB 胸像，不再运行时裁切全身预览 PNG。320×568 下将人物卡限制为 126–132px 高，并使用独立的立绘、字号和间距规则，避免通过整页缩放牺牲可读性。
 
-前期与结算信息由 `App.tsx` 的 `guideSequence { phase, beat }` 和 `revealTimers` 驱动。派生 `guideBeat` 只有在序列所属 phase 与当前 game phase 相同时才生效，因此跨步骤首帧必定回到 0。搜救/分工/修复的 beat 0 是场内演出，650ms 后 beat 1 挂载人物卡；`advanceGuide()` 由玩家点击触发 beat 2，人物卡卸载并挂载任务与目标；900ms 后 beat 3 才挂载真实操作。生产 beat 0 只显示 `+3`，850ms 后 beat 1 才加入废料资源与对白；黄昏 beat 0 只展示场景，650ms 后出现守夜卡；结算在 650/1250ms 依次加入统计与重玩。帮助按钮通过递增 `guideReplay` 从当前步骤重播。资源托盘只渲染已解锁项，并用 `data-count` 在 102 / 196 / 286px 三档宽度间扩展。
+前期与结算信息由 `App.tsx` 的 `guideSequence { phase, beat }` 和 `revealTimers` 驱动。派生 `guideBeat` 只有在序列所属 phase 与当前 game phase 相同时才生效，因此跨步骤首帧必定回到 0。搜救/分工/修复的 beat 0 是场内演出，650ms 后 beat 1 挂载人物卡；`advanceGuide()` 由玩家点击触发 beat 2，人物卡卸载并挂载任务与目标；900ms 后 beat 3 才挂载真实操作。生产 beat 0 只显示 `+3`，850ms 后 beat 1 才加入废料资源与对白；黄昏 beat 0 只展示场景，650ms 后出现守夜卡；任意夜结算都在 650/1250ms 依次加入统计与“进入下一天”。帮助按钮通过递增 `guideReplay` 从当前步骤重播。资源托盘只渲染已解锁项，并用 `data-count` 在 102 / 196 / 286px 三档宽度间扩展。
 
 ### 场景、碰撞与更新
 
 当前紧凑完整回合没有自由移动物理碰撞；敌人沿四条明确车道进入路障前的镜头范围，战斗伤害由时间压力模型计算。主场景使用重新入库的 `scene__afterlightTerrain`：一个 15×18u 地基加一块连续草地顶面，消费端保持 1:1；主路、维修支路、前坪和 junction patch 仅以 0.025–0.030u 的表面层嵌入，不再使用独立草台、道路厚板或外露土坡拼接。消费端在正式草面下方增加 80×80u 同色、同宏观明度贴图的连续草面，覆盖所有导演机位的可视范围；它不增加交互内容，也不让原 15×18u 地基斜边读成棋盘或悬浮模型板。`scene__signalHouse` 深化为连续基座、主厅、侧翼、双坡屋顶、双檐口、深门框、雨棚、窗台、配电箱和屋顶设备，并保留 `state_signalDoorway / state_signalDoorPivot / state_signalDoor / state_doorBrace / state_doorLatch` 五个正式状态节点。新增 `scene__afterlightWorkshop` 以开放维修口、工具墙、屋顶监视器、行车横梁和吊钩包围工作台；它只在生产阶段后显现。`SignalHouse` 先让斜撑落到 0.18u 基座顶，再绕真实铰链开门；林在进度超过 72% 后才出现在门外安全点。`_qa/capture.mjs` 额外截取 `rescuing-emergence` 状态验证出门帧。正式叙事角色和敌人继续使用 `people__afterlightLin`、`people__afterlightJo`、`monsters__blackoutHusk` 与 `monsters__cableStalker`。角色 GLB 按命名 rig 节点恢复各自 rest pose，再通过 `walk / signal / point / work / shamble / prowl` 动作档案叠加相对关节旋转。`walk` 让腿与对侧手臂反相摆动；外层 group 由 `assignmentPose()` 或 `repairPose()` 沿开放道路路径移动和转向，内层 group 只负责步态与接地起伏。行走时钟逐帧累计并把单帧推进限制为 100ms：低帧率宁可延长也不会从起点跳到终点。`prefers-reduced-motion` 只把行走肢体摆幅归零，外层路径和到岗因果仍保留。
 
-防守更新以真实帧间隔推进，单帧 `dt` 上限为 0.25 秒：低帧率 WebGL 设备上的 32/36/40 秒倒计时仍接近墙钟时间，切后台返回时又不会一次累计过量伤害。
+防守更新以真实帧间隔推进，单帧 `dt` 上限为 0.25 秒：低帧率 WebGL 设备上的 32–60 秒倒计时仍接近墙钟时间，切后台返回时又不会一次累计过量伤害。场内敌人数按 `min(28, 8+4(n-1))` 封顶，敌人速度倍率按 `min(1.9, 1+0.11(n-1))` 封顶，防止无限夜数转化为无限模型或不可控逐帧位移。
 
 ### 光照与渲染
 

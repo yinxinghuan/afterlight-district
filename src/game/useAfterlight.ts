@@ -25,8 +25,16 @@ const INITIAL: GameSnapshot = {
   fieldRepairCount: 0,
 }
 
-const NIGHT_DURATION = [32, 36, 40] as const
-const NIGHT_PRESSURE = [2.35, 3.2, 4.15] as const
+const MAX_NIGHT_DURATION = 60
+const MAX_NIGHT_PRESSURE = 12.55
+
+function standardDurationForDay(day: number) {
+  return Math.min(MAX_NIGHT_DURATION, 28 + Math.max(1, day) * 4)
+}
+
+function pressureForDay(day: number) {
+  return Math.min(MAX_NIGHT_PRESSURE, 2.35 + Math.max(0, day - 1) * 0.85)
+}
 
 function durationForDay(day: number) {
   if (import.meta.env.DEV) {
@@ -34,7 +42,7 @@ function durationForDay(day: number) {
     const qaDuration = Number(params.get(`qa_night_${day}`) ?? params.get('qa_night_seconds'))
     if (Number.isFinite(qaDuration) && qaDuration >= 8 && qaDuration <= 40) return qaDuration
   }
-  return NIGHT_DURATION[Math.min(2, day - 1)]
+  return standardDurationForDay(day)
 }
 
 export function useAfterlight() {
@@ -67,7 +75,7 @@ export function useAfterlight() {
   const skipTutorial = useCallback(() => {
     if (import.meta.env.DEV) {
       const qaStartDay = Number(new URLSearchParams(window.location.search).get('qa_start_day'))
-      if (qaStartDay === 2 || qaStartDay === 3) {
+      if (Number.isInteger(qaStartDay) && qaStartDay >= 2 && qaStartDay <= 99) {
         setGame({
           ...INITIAL,
           day: qaStartDay,
@@ -265,7 +273,7 @@ export function useAfterlight() {
         const elapsed = Math.min(current.defenseDuration, current.defenseElapsed + dt)
         const inGrace = elapsed < (current.day === 1 ? 8 : 5)
         const overloaded = current.overdriveUntil > elapsed
-        const nightPressure = NIGHT_PRESSURE[Math.min(2, current.day - 1)]
+        const nightPressure = pressureForDay(current.day)
         const pressure = elapsed > 3 ? nightPressure * (inGrace ? 0.4 : 1) * (overloaded ? 0.38 : 1) : 0
         const barricadeHp = Math.max(0, current.barricadeHp - pressure * dt)
         const coreDamage = barricadeHp <= 0 ? 7.5 * (1 + (current.day - 1) * 0.18) * dt : 0
@@ -304,7 +312,6 @@ export function useAfterlight() {
 
   const advanceDay = useCallback(() => {
     if (phaseRef.current !== 'slice-win') return false
-    if (gameRef.current.day >= 3) return false
     phaseRef.current = 'day-brief'
     setGame(current => ({
       ...current,
