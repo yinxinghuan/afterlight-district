@@ -59,7 +59,7 @@ const en: typeof zh = {
 }
 
 function detectLocale(): Locale {
-  const saved = localStorage.getItem('game_locale')
+  const saved = alteruLocalStorage.getItem('game_locale')
   if (saved === 'zh' || saved === 'en') return saved
   return navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
 }

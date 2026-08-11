@@ -48,7 +48,7 @@ function durationForDay(day: number) {
 export function useAfterlight() {
   const [game, setGame] = useState<GameSnapshot>(INITIAL)
   const gameRef = useRef<GameSnapshot>(INITIAL)
-  const [muted, setMuted] = useState(() => localStorage.getItem('afterlight_muted') === '1')
+  const [muted, setMuted] = useState(() => alteruLocalStorage.getItem('afterlight_muted') === '1')
   const phaseRef = useRef<Phase>('intro')
   const rafRef = useRef(0)
   const assignmentRafRef = useRef(0)
@@ -286,7 +286,7 @@ export function useAfterlight() {
         if (elapsed >= current.defenseDuration) {
           phaseRef.current = 'slice-win'
           if (!muted) chord([392, 523, 659, 784])
-          localStorage.setItem('afterlight_tutorial_complete', '1')
+          alteruLocalStorage.setItem('afterlight_tutorial_complete', '1')
           return {
             ...current,
             phase: 'slice-win',
@@ -407,7 +407,7 @@ export function useAfterlight() {
   const toggleMuted = useCallback(() => {
     setMuted(current => {
       const next = !current
-      localStorage.setItem('afterlight_muted', next ? '1' : '0')
+      alteruLocalStorage.setItem('afterlight_muted', next ? '1' : '0')
       if (!next) tone(440, 0.08, 0.10)
       return next
     })
