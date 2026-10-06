@@ -423,12 +423,6 @@ function District() {
   const rev = useSyncExternalStore(subscribe, () => world.rev)
   void rev
   const group = useRef<THREE.Group>(null)
-  const aimFromEvent = (event: ThreeEvent<PointerEvent | MouseEvent>) => {
-    if (!group.current) return
-    const local = group.current.worldToLocal(event.point.clone())
-    world.aim = { x: local.x, z: local.z }
-    if (world.firing || event.type === 'click') fireAt(local.x, local.z)
-  }
   const night = moodNight()
   const { powered, lamps, overdrive } = scenery(night)
   const lampColor = overdrive ? '#7ee7dc' : '#ffd58a'
@@ -447,8 +441,16 @@ function District() {
       <mesh position={[0, 0.6, 0]} rotation={[-Math.PI / 2, 0, 0]}
         onPointerDown={(event: ThreeEvent<PointerEvent>) => {
           event.stopPropagation()
-          world.firing = world.phase === 'night'
-          aimFromEvent(event)
+          if (!group.current) return
+          const local = group.current.worldToLocal(event.point.clone())
+          const near = (x: number, z: number, radius: number) => Math.hypot(local.x - x, local.z - z) < radius
+          if (world.phase === 'rescue' && near(-3.24, -3.5, 2.8)) { interact('house'); return }
+          if (world.phase === 'assign' && near(-2.2, 0.2, 2.2)) { interact('bench'); return }
+          if (world.phase === 'repair' && near(0, 3.35, 2.6)) { interact('barricade'); return }
+          if (world.phase !== 'night') return
+          world.firing = true
+          world.aim = { x: local.x, z: local.z }
+          fireAt(local.x, local.z)
         }}
         onPointerMove={(event: ThreeEvent<PointerEvent>) => {
           if (world.phase !== 'night' || !group.current) return
@@ -463,7 +465,7 @@ function District() {
       <Asset assetId="ridge" position={[1.88, 0.38, -6.32]} />
       <SignalHouse position={[-3.24, 0.48, -3.78]} scale={0.74} />
       <mesh position={[-3.24, 1.2, -3.4]}
-        onClick={(event: ThreeEvent<MouseEvent>) => { event.stopPropagation(); interact('house') }}
+        onPointerDown={(event: ThreeEvent<PointerEvent>) => { event.stopPropagation(); interact('house') }}
       >
         <boxGeometry args={[2.4, 2.1, 2.2]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
@@ -476,7 +478,7 @@ function District() {
       <Asset assetId="generator" position={[0, 0.32, -2.12]} scale={1.08} />
       <Asset assetId="workbench" position={[-2.3, 0.48, 0.2]} rotation={[0, 0.35, 0]} scale={0.88} />
       <mesh position={[-2.15, 0.9, 0.15]}
-        onClick={(event: ThreeEvent<MouseEvent>) => { event.stopPropagation(); interact('bench') }}
+        onPointerDown={(event: ThreeEvent<PointerEvent>) => { event.stopPropagation(); interact('bench') }}
       >
         <boxGeometry args={[1.8, 1.2, 1.4]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
@@ -488,7 +490,7 @@ function District() {
       {showDefense && <>
         <Asset assetId="barricade" position={[0, 0.32, 3.42]} scale={[Math.min(2.4, 1.55 + (world.barricadeMax - 100) * 0.01), 1, 1]} />
         <mesh position={[0, 0.8, 3.35]}
-          onClick={(event: ThreeEvent<MouseEvent>) => { event.stopPropagation(); interact('barricade') }}
+          onPointerDown={(event: ThreeEvent<PointerEvent>) => { event.stopPropagation(); interact('barricade') }}
         >
           <boxGeometry args={[2.6, 1.1, 1.1]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
@@ -508,10 +510,10 @@ function District() {
       <SparkField />
       <Beams />
       <Floats />
-      {ping === 'house' && <Html position={[-3.24, 2.25, -3.5]} center distanceFactor={9}><span className="cg-ping" /></Html>}
-      {ping === 'bench' && <Html position={[-2.2, 1.7, 0.15]} center distanceFactor={9}><span className="cg-ping cg-ping--teal" /></Html>}
-      {ping === 'barricade' && <Html position={[0, 1.55, 3.4]} center distanceFactor={9}><span className="cg-ping cg-ping--danger" /></Html>}
-      {world.phase === 'rescue' && <Html position={[-3.15, 2.05, -2.7]} center distanceFactor={8}><span className="cg-speech">Anyone there? The door is jammed!</span></Html>}
+      {ping === 'house' && <Html position={[-3.24, 2.25, -3.5]} center zIndexRange={[2, 0]}><span className="cg-ping" /></Html>}
+      {ping === 'bench' && <Html position={[-2.2, 1.7, 0.15]} center zIndexRange={[2, 0]}><span className="cg-ping cg-ping--teal" /></Html>}
+      {ping === 'barricade' && <Html position={[0, 1.55, 3.4]} center zIndexRange={[2, 0]}><span className="cg-ping cg-ping--danger" /></Html>}
+      {world.phase === 'rescue' && <Html position={[-3.15, 2.05, -2.7]} center zIndexRange={[2, 0]}><span className="cg-speech">Anyone there? The door is jammed!</span></Html>}
     </group>
   )
 }

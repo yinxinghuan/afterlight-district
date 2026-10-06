@@ -177,8 +177,9 @@ body[data-phase="night"] .cg-stage { cursor: crosshair; }
 .cg-speech {
   display: block; max-width: 220px; padding: 8px 10px; background: var(--paper); color: #172028;
   font-size: 13px; font-weight: 800; text-align: center; box-shadow: 3px 3px 0 rgba(5,8,12,.7);
+  pointer-events: none;
 }
-.cg-ping { display: block; width: 36px; height: 36px; border: 3px solid var(--warm); animation: cg-ping 1.15s ease-out infinite; }
+.cg-ping { display: block; width: 36px; height: 36px; border: 3px solid var(--warm); animation: cg-ping 1.15s ease-out infinite; pointer-events: none; }
 .cg-ping--teal { border-color: var(--power); }
 .cg-ping--danger { border-color: var(--danger); }
 @keyframes cg-ping { from { transform: scale(.55); opacity: 1; } to { transform: scale(1.35); opacity: 0; } }
