@@ -39,12 +39,8 @@ function guestIndex(): Plugin {
         'models/people__afterlightLin.png',
         'models/people__worker.glb',
         'models/people__worker.png',
-        'models/plants__roundTree.glb',
-        'models/scene__house.glb',
-        'models/scene__lamp.glb',
         'models/scene__roadTile.glb',
         'models/scene__grassTile.glb',
-        'models/scene__fence.glb',
       ]
       for (const rel of drop) {
         const file = path.join(out, rel)

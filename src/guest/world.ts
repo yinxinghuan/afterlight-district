@@ -14,7 +14,8 @@ export type Phase =
   | 'upgrade'
   | 'fail'
 
-export type Kind = 'husk' | 'stalker' | 'brute'
+export type Kind = 'husk' | 'stalker' | 'runner' | 'brute'
+export type NightEvent = 'none' | 'flicker' | 'curb' | 'brute'
 
 export type Enemy = {
   id: number
@@ -25,6 +26,8 @@ export type Enemy = {
   maxHp: number
   flash: number
   bite: number
+  weave: number
+  marked: boolean
 }
 
 export type Spark = {
@@ -61,7 +64,21 @@ export type Beam = {
   max: number
 }
 
-export type Ranks = { barricade: number; battery: number; capacitor: number }
+export type Ranks = { barricade: number; battery: number; capacitor: number; clinic: number; rations: number }
+
+export function emptyRanks(): Ranks {
+  return { barricade: 0, battery: 0, capacitor: 0, clinic: 0, rations: 0 }
+}
+
+export function fillRanks(ranks?: Partial<Ranks> | null): Ranks {
+  return {
+    barricade: ranks?.barricade ?? 0,
+    battery: ranks?.battery ?? 0,
+    capacitor: ranks?.capacitor ?? 0,
+    clinic: ranks?.clinic ?? 0,
+    rations: ranks?.rations ?? 0,
+  }
+}
 
 export const SAVE_KEY = 'cg_afterlight_guest_v1'
 
@@ -100,8 +117,17 @@ export const world = {
   spawnGoal: 6,
   kills: 0,
   leaks: 0,
-  ranks: { barricade: 0, battery: 0, capacitor: 0 } as Ranks,
-  permanent: { barricade: 0, battery: 0, capacitor: 0 } as Ranks,
+  ranks: emptyRanks(),
+  permanent: emptyRanks(),
+  event: 'none' as NightEvent,
+  eventUntil: 0,
+  eventDone: false,
+  eventProgress: 0,
+  eventNeed: 0,
+  lampSteady: false,
+  lampOut: false,
+  clinicUsed: false,
+  clinicPulse: 0,
   banked: 0,
   bestNight: 0,
   muted: false,
@@ -187,12 +213,23 @@ export function enemyPosition(enemy: Enemy): [number, number, number] {
   ] as const
   const pts = lanes[enemy.lane]
   const gate = 0.62
+  let x: number
+  let z: number
   if (enemy.t <= gate) {
     const u = enemy.t / gate
-    return [pts[0][0] + (pts[1][0] - pts[0][0]) * u, 0.22, pts[0][1] + (pts[1][1] - pts[0][1]) * u]
+    x = pts[0][0] + (pts[1][0] - pts[0][0]) * u
+    z = pts[0][1] + (pts[1][1] - pts[0][1]) * u
+  } else {
+    const u = (enemy.t - gate) / (1 - gate)
+    x = pts[1][0] + (pts[2][0] - pts[1][0]) * u
+    z = pts[1][1] + (pts[2][1] - pts[1][1]) * u
   }
-  const u = (enemy.t - gate) / (1 - gate)
-  return [pts[1][0] + (pts[2][0] - pts[1][0]) * u, 0.22, pts[1][1] + (pts[2][1] - pts[1][1]) * u]
+  if (enemy.kind === 'stalker' || enemy.kind === 'runner') {
+    const weave = enemy.weave ?? enemy.id
+    x += Math.sin(enemy.t * (enemy.kind === 'runner' ? 11 : 8) + weave) * (enemy.kind === 'runner' ? 0.62 : 0.38)
+  }
+  if (enemy.marked) x *= 0.35
+  return [x, 0.22, z]
 }
 
 function inLight(enemy: Enemy) {
@@ -200,29 +237,57 @@ function inLight(enemy: Enemy) {
 }
 
 function nightLength(day: number) {
-  return Math.min(48, 24 + day * 4)
+  if (day <= 1) return 24
+  if (day === 2) return 34
+  if (day === 3) return 40
+  return Math.min(48, 36 + (day - 3) * 3)
+}
+
+function waveFor(day: number): Kind[] {
+  if (day <= 1) return ['husk', 'husk', 'husk', 'husk', 'husk', 'husk', 'husk']
+  if (day === 2) return ['husk', 'stalker', 'runner', 'husk', 'stalker', 'husk', 'runner', 'stalker', 'husk', 'runner']
+  if (day === 3) return ['stalker', 'husk', 'runner', 'brute', 'stalker', 'husk', 'runner', 'brute', 'stalker', 'husk', 'runner', 'brute']
+  const wave: Kind[] = ['husk', 'stalker', 'runner', 'brute', 'husk', 'stalker', 'runner', 'husk', 'brute', 'stalker']
+  const extra = Math.min(2, day - 3)
+  for (let i = 0; i < extra; i += 1) wave.push(i % 2 === 0 ? 'runner' : 'husk')
+  return wave
 }
 
 function spawnGoal(day: number) {
-  return Math.min(12, 6 + (day - 1) * 2)
+  return waveFor(day).length
 }
 
 function rollKind(day: number, index: number): Kind {
-  if (day >= 4 && index % 5 === 4) return 'brute'
-  if (day >= 2 && index % 3 === 2) return 'stalker'
-  return 'husk'
+  const wave = waveFor(day)
+  return wave[Math.min(index, wave.length - 1)]
 }
 
-function maxHp(kind: Kind) {
-  if (kind === 'brute') return 64
-  if (kind === 'stalker') return 20
-  return 34
+function maxHp(kind: Kind, day = world.day) {
+  if (day <= 1) return 30
+  if (kind === 'brute') return day >= 3 ? 86 : 78
+  if (kind === 'stalker') return 26
+  if (kind === 'runner') return 18
+  return 36
 }
 
 function speedFor(kind: Kind) {
-  if (kind === 'brute') return 0.07
-  if (kind === 'stalker') return 0.21
-  return 0.125
+  if (kind === 'brute') return 0.058
+  if (kind === 'stalker') return 0.22
+  if (kind === 'runner') return 0.33
+  return 0.12
+}
+
+export function dawnOffers(): Array<keyof Ranks> {
+  if (world.day <= 1) return ['barricade', 'clinic', 'rations']
+  if (world.day === 2) {
+    const third: keyof Ranks = world.ranks.clinic === 0 ? 'clinic' : world.ranks.rations === 0 ? 'rations' : 'barricade'
+    return ['capacitor', 'battery', third]
+  }
+  return ['barricade', 'battery', 'capacitor']
+}
+
+export function upgradeCost(kind: keyof Ranks) {
+  return 8 + world.ranks[kind] * 6
 }
 
 export function overdriveActive() {
@@ -233,7 +298,10 @@ function applyMetaToFresh() {
   world.barricadeMax = 100 + world.permanent.barricade * 18
   world.barricade = Math.min(world.barricadeMax, 60 + world.permanent.barricade * 14)
   world.power = Math.min(99, 40 + world.permanent.battery * 8)
-  world.ranks = { barricade: 0, battery: 0, capacitor: world.permanent.capacitor }
+  world.ranks = emptyRanks()
+  world.ranks.capacitor = world.permanent.capacitor
+  world.ranks.clinic = world.permanent.clinic
+  world.ranks.rations = world.permanent.rations
 }
 
 function blankRun() {
@@ -262,6 +330,15 @@ function blankRun() {
   world.demo = false
   world.hold = false
   world.preview = false
+  world.event = 'none'
+  world.eventUntil = 0
+  world.eventDone = false
+  world.eventProgress = 0
+  world.eventNeed = 0
+  world.lampSteady = false
+  world.lampOut = false
+  world.clinicUsed = false
+  world.clinicPulse = 0
   applyMetaToFresh()
   world.nightDuration = nightLength(1)
   world.spawnGoal = spawnGoal(1)
@@ -343,10 +420,24 @@ export function beginNight() {
   world.kills = 0
   world.leaks = 0
   world.overdriveUntil = 0
-  world.overdriveReady = world.day === 1 ? 4.5 : 1.2
+  world.overdriveReady = world.day === 1 ? 4.2 : 1.2
   world.repairReady = 1.4
   world.enemies = []
   world.fireCd = 0
+  world.event = 'none'
+  world.eventUntil = 0
+  world.eventDone = false
+  world.eventProgress = 0
+  world.eventNeed = 0
+  world.lampSteady = false
+  world.lampOut = false
+  world.clinicUsed = false
+  if (world.ranks.rations > 0) {
+    const bonus = 4 + world.ranks.rations * 2
+    world.scrap = Math.min(99, world.scrap + bonus)
+    world.morale = Math.min(100, world.morale + 6 + world.ranks.rations * 2)
+    popup(-1.6, 1.5, 0.4, `+${bonus} RATIONS`, '#ffd58a')
+  }
   nightSnap = {
     day: world.day,
     power: world.power,
@@ -369,35 +460,38 @@ export function openUpgrade() {
   emit()
 }
 
-export function chooseUpgrade(kind: 'barricade' | 'battery' | 'capacitor') {
+export function chooseUpgrade(kind: keyof Ranks) {
   if (world.phase !== 'upgrade') return
-  if (kind === 'capacitor' && world.cleared < 2) {
+  if (!dawnOffers().includes(kind)) return
+  const cap = kind === 'clinic' || kind === 'rations' ? 2 : 3
+  if (world.ranks[kind] >= cap) {
     sfx('error')
     return
   }
-  if (world.scrap < 8) {
+  const cost = upgradeCost(kind)
+  if (world.scrap < cost) {
     sfx('error')
-    popup(0, 1.6, 0.4, 'NEED 8 SCRAP', '#ffb4a8')
+    popup(0, 1.6, 0.4, `NEED ${cost} SCRAP`, '#ffb4a8')
     emit()
     return
   }
-  world.scrap -= 8
+  world.scrap -= cost
+  world.ranks[kind] += 1
   if (kind === 'barricade') {
-    world.ranks.barricade += 1
     world.barricadeMax += 20
     world.barricade = Math.min(world.barricadeMax, world.barricade + 30)
   } else if (kind === 'battery') {
-    world.ranks.battery += 1
     world.power = Math.min(99, world.power + 22)
-  } else {
-    world.ranks.capacitor += 1
+  } else if (kind === 'clinic') {
+    world.morale = Math.min(100, world.morale + 8)
+    world.clinicPulse = 1.6
   }
   world.banked += 6 + world.kills
   world.day += 1
   world.phase = 'dusk'
   world.power = Math.min(99, world.power + 10)
-  world.scrap = Math.min(99, world.scrap + 8)
-  world.morale = Math.min(100, world.morale + 8)
+  world.scrap = Math.min(99, world.scrap + 6)
+  world.morale = Math.min(100, world.morale + 6)
   sfx('upgrade')
   emit()
   save()
@@ -503,12 +597,14 @@ export function strike(enemy: Enemy, free = false) {
   if (enemy.hp <= 0) {
     enemy.hp = 0
     world.kills += 1
-    world.scrap = Math.min(99, world.scrap + 2)
     world.hitStop = Math.max(world.hitStop, world.reduceMotion ? 0 : 0.055)
     world.shake = Math.min(0.7, world.shake + 0.34)
     world.punch = Math.min(0.06, world.punch + 0.028)
-    burst(x, y + 0.6, z, '#ffd58a', 12)
-    popup(x, y + 1.7, z, '+2 SCRAP', '#ffd58a')
+    const scrap = enemy.kind === 'brute' ? 3 : 2
+    world.scrap = Math.min(99, world.scrap + scrap)
+    burst(x, y + 0.6, z, enemy.kind === 'brute' ? '#ffb15a' : '#ffd58a', enemy.kind === 'brute' ? 16 : 12)
+    popup(x, y + 1.7, z, `+${scrap} SCRAP`, '#ffd58a')
+    onEventKill(enemy)
     sfx('kill')
   } else {
     world.hitStop = Math.max(world.hitStop, world.reduceMotion ? 0 : 0.028)
@@ -563,11 +659,12 @@ export function triggerOverdrive() {
     return
   }
   world.power -= 6
-  world.overdriveUntil = world.nightTime + 6
+  world.overdriveUntil = world.nightTime + 6 + Math.min(3, world.ranks.capacitor)
   world.shake = Math.min(0.8, world.shake + 0.45)
   world.punch = 0.04
   burst(-2.22, 1.4, 2.02, '#9ffff2', 10)
   burst(2.3, 1.3, 2.12, '#9ffff2', 10)
+  if (world.event === 'flicker' && !world.eventDone) finishEvent(true)
   sfx('overload')
   emit()
 }
@@ -614,20 +711,110 @@ export function repairCooldown() {
   return Math.max(0, Math.ceil(world.repairReady - world.nightTime))
 }
 
-function spawnEnemy() {
-  const kind = rollKind(world.day, world.spawned)
-  const enemy: Enemy = {
+function makeEnemy(kind: Kind, lane: 0 | 1, t: number, marked = false): Enemy {
+  const hp = maxHp(kind)
+  return {
     id: uid++,
     kind,
-    lane: (world.spawned % 2) as 0 | 1,
-    t: 0,
-    hp: maxHp(kind),
-    maxHp: maxHp(kind),
+    lane,
+    t,
+    hp,
+    maxHp: hp,
     flash: 0,
     bite: 0,
+    weave: Math.random() * Math.PI * 2,
+    marked,
   }
+}
+
+function spawnEnemy() {
+  const kind = rollKind(world.day, world.spawned)
+  const headstart = kind === 'runner' ? 0.34 : kind === 'stalker' && world.day >= 3 ? 0.12 : 0
+  world.enemies.push(makeEnemy(kind, (world.spawned % 2) as 0 | 1, headstart))
   world.spawned += 1
-  world.enemies.push(enemy)
+}
+
+function onEventKill(enemy: Enemy) {
+  if (world.demo || world.eventDone || world.event === 'none') return
+  if (world.event === 'curb' && (enemy.kind === 'stalker' || enemy.kind === 'runner')) {
+    world.eventProgress += 1
+    if (world.eventProgress >= world.eventNeed) finishEvent(true)
+  }
+  if (world.event === 'brute' && enemy.marked) finishEvent(true)
+}
+
+function finishEvent(ok: boolean) {
+  if (world.eventDone || world.event === 'none') return
+  world.eventDone = true
+  if (ok) {
+    if (world.event === 'flicker') {
+      world.lampSteady = true
+      world.lampOut = false
+      world.scrap = Math.min(99, world.scrap + 4)
+      popup(-2.1, 2.1, 2.0, 'LAMP STEADY', '#b7fff4')
+      burst(-2.22, 1.5, 2.02, '#9ffff2', 12)
+    } else if (world.event === 'curb') {
+      world.scrap = Math.min(99, world.scrap + 6)
+      world.lampSteady = true
+      popup(2.1, 2.0, 2.1, 'CURB CLEAR', '#ffd58a')
+    } else {
+      world.barricade = Math.min(world.barricadeMax, world.barricade + 14)
+      world.morale = Math.min(100, world.morale + 6)
+      popup(0.1, 1.9, 3.2, 'GATE HOLDS', '#b6f3c0')
+      burst(0, 1.1, 3.3, '#e7c39a', 12)
+    }
+    sfx('upgrade')
+    return
+  }
+  if (world.event === 'flicker') {
+    world.lampOut = true
+    world.enemies.push(makeEnemy('husk', 0, 0.32))
+    popup(-2.1, 2.1, 2.0, 'LAMP OUT', '#ffb4a8')
+  } else if (world.event === 'curb') {
+    world.enemies.push(makeEnemy('runner', 1, 0.48))
+    popup(1.4, 1.8, 3.6, 'THEY SLIPPED', '#ffb15a')
+  } else {
+    world.shake = 0.8
+    popup(0.1, 1.9, 3.2, 'GATE HIT', '#ffb4a8')
+  }
+  sfx('core')
+}
+
+function openEvent() {
+  if (world.event !== 'none' || world.hold) return
+  if (world.day === 1 && world.nightTime >= 7) {
+    world.event = 'flicker'
+    world.eventUntil = world.nightTime + 7
+    world.eventNeed = 1
+    popup(-2.2, 2.2, 2, 'LAMP FLICKER', '#ffb4a8')
+    sfx('error')
+  } else if (world.day === 2 && world.nightTime >= 8) {
+    world.event = 'curb'
+    world.eventUntil = world.nightTime + 9
+    world.eventNeed = 2
+    popup(1.6, 2.1, 4.2, 'ON THE CURB', '#ffb15a')
+    sfx('error')
+  } else if (world.day >= 3 && world.nightTime >= 8 && world.day === 3) {
+    world.event = 'brute'
+    world.eventUntil = world.nightTime + 14
+    world.eventNeed = 1
+    world.enemies.push(makeEnemy('brute', 0, 0.16, true))
+    popup(0, 2.3, 4.4, 'BRUTE INBOUND', '#ffb15a')
+    sfx('error')
+  }
+}
+
+function tickClinic() {
+  if (world.clinicUsed || world.ranks.clinic <= 0 || world.nightTime < 5) return
+  if (world.barricade > world.barricadeMax * 0.62) return
+  world.clinicUsed = true
+  const heal = 10 + world.ranks.clinic * 6
+  world.barricade = Math.min(world.barricadeMax, world.barricade + heal)
+  world.morale = Math.min(100, world.morale + 4)
+  world.clinicPulse = 1.5
+  popup(-2.2, 1.6, -0.2, `CLINIC +${heal}`, '#ffb4a8')
+  burst(-2.3, 0.9, -0.3, '#ff8d7a', 10)
+  sfx('repair')
 }
 
 function fail(reason: string) {
@@ -655,33 +842,53 @@ function winNight() {
 
 function tickNight(dt: number) {
   if (!world.hold) world.nightTime += dt
-  const pressure = 1 + (world.day - 1) * 0.08
+  const pressure = 1 + Math.max(0, world.day - 1) * 0.06
   if (world.spawned < world.spawnGoal) {
     world.spawnAcc += dt
-    const every = Math.max(0.8, 1.75 - (world.day - 1) * 0.14)
+    const every = world.day <= 1 ? 1.55 : world.day === 2 ? 1.05 : world.day === 3 ? 0.95 : Math.max(0.8, 1.05 - (world.day - 3) * 0.04)
     if (world.spawnAcc >= every) {
       world.spawnAcc = 0
       spawnEnemy()
     }
   }
+  if (!world.eventDone) openEvent()
+  tickClinic()
   const overload = overdriveActive()
   for (const enemy of world.enemies) {
     if (enemy.hp <= 0) continue
     enemy.flash = Math.max(0, enemy.flash - dt)
     const lit = inLight(enemy)
-    if (overload && lit) enemy.hp -= 6.5 * dt
-    const slow = overload && lit ? 0.38 : 1
+    const burn = enemy.kind === 'brute' ? 4.2 : enemy.kind === 'runner' ? 8 : 6.5
+    if (overload && lit) {
+      enemy.hp -= burn * dt
+      if (enemy.hp <= 0) {
+        enemy.hp = 0
+        world.kills += 1
+        const scrap = enemy.kind === 'brute' ? 3 : 2
+        world.scrap = Math.min(99, world.scrap + scrap)
+        const [x, y, z] = enemyPosition(enemy)
+        popup(x, y + 1.6, z, `+${scrap} SCRAP`, '#ffd58a')
+        burst(x, y + 0.6, z, '#9ffff2', 8)
+        onEventKill(enemy)
+      }
+    }
+    if (enemy.hp <= 0) continue
+    const slow = overload && lit ? (enemy.kind === 'runner' ? 0.55 : 0.38) : 1
     const gate = 0.62
-    const holding = enemy.t >= gate && world.barricade > 0
-    if (!holding) enemy.t = Math.min(1, enemy.t + speedFor(enemy.kind) * pressure * slow * dt)
-    if (holding) {
+    const atGate = enemy.t >= gate && world.barricade > 0
+    const slipping = atGate && enemy.kind === 'runner'
+    if (!atGate || slipping) {
+      const slip = slipping ? 0.42 : 1
+      enemy.t = Math.min(1, enemy.t + speedFor(enemy.kind) * pressure * slow * slip * dt)
+    }
+    if (atGate) {
       enemy.bite -= dt
       if (enemy.bite <= 0) {
-        enemy.bite = enemy.kind === 'brute' ? 0.55 : 0.7
+        enemy.bite = enemy.kind === 'brute' ? 0.52 : enemy.kind === 'runner' ? 0.42 : enemy.kind === 'stalker' ? 0.58 : 0.72
         const guard = world.day === 1 && world.nightTime < 8 ? 0.45 : 1
-        const dmg = (enemy.kind === 'brute' ? 10 : enemy.kind === 'stalker' ? 4 : 6) * guard
-        world.barricade = Math.max(0, world.barricade - dmg)
-        world.shake = Math.min(0.55, world.shake + 0.12)
+        const bite = enemy.kind === 'brute' ? 11 : enemy.kind === 'runner' ? 3 : enemy.kind === 'stalker' ? 4 : 6
+        world.barricade = Math.max(0, world.barricade - bite * guard)
+        world.shake = Math.min(0.55, world.shake + (enemy.kind === 'brute' ? 0.22 : 0.12))
         if (world.barricade <= 0) {
           world.morale = Math.max(0, world.morale - 8)
           world.shake = 0.7
@@ -689,8 +896,9 @@ function tickNight(dt: number) {
         }
       }
     }
+    if (enemy.marked && world.event === 'brute' && !world.eventDone && enemy.t >= 0.62) finishEvent(false)
     if (enemy.t >= 1 && world.barricade <= 0) {
-      world.core = Math.max(0, world.core - (enemy.kind === 'brute' ? 16 : 10))
+      world.core = Math.max(0, world.core - (enemy.kind === 'brute' ? 16 : enemy.kind === 'runner' ? 8 : 10))
       world.morale = Math.max(0, world.morale - 6)
       world.leaks += 1
       world.hurt = 0.85
@@ -699,6 +907,7 @@ function tickNight(dt: number) {
       sfx('core')
     }
   }
+  if (world.event !== 'none' && !world.eventDone && world.nightTime >= world.eventUntil) finishEvent(false)
   if (world.barricade <= 0) {
     const pressure = 1 + (world.day - 1) * 0.08
     world.core = Math.max(0, world.core - 8 * pressure * dt)
@@ -715,8 +924,10 @@ function tickNight(dt: number) {
     return
   }
   const living = world.enemies.some(enemy => enemy.hp > 0)
-  const cleared = world.leaks === 0 && world.spawned >= world.spawnGoal && !living && world.nightTime > 6
-  if (!world.hold && (world.nightTime >= world.nightDuration || cleared)) winNight()
+  const eventOk = world.event === 'none' || world.eventDone
+  const minHold = world.day <= 1 ? 8 : world.day === 2 ? 16 : 18
+  const cleared = eventOk && world.leaks === 0 && world.spawned >= world.spawnGoal && !living && world.nightTime > minHold
+  if (!world.hold && eventOk && (world.nightTime >= world.nightDuration || cleared)) winNight()
 }
 
 function tickShow(dt: number) {
@@ -775,6 +986,7 @@ export function step(dt: number) {
   world.shake = Math.max(0, world.shake - visual * 1.8)
   world.punch = Math.max(0, world.punch - visual * 1.4)
   world.hurt = Math.max(0, world.hurt - visual * 1.6)
+  world.clinicPulse = Math.max(0, world.clinicPulse - visual)
   world.fireCd = Math.max(0, world.fireCd - visual)
   for (const spark of world.sparks) {
     spark.life -= visual
@@ -857,6 +1069,14 @@ type SaveRun = {
   spawnGoal: number
   kills: number
   leaks: number
+  event: NightEvent
+  eventUntil: number
+  eventDone: boolean
+  eventProgress: number
+  eventNeed: number
+  lampSteady: boolean
+  lampOut: boolean
+  clinicUsed: boolean
 }
 
 export function save() {
@@ -882,6 +1102,14 @@ export function save() {
       spawnGoal: world.spawnGoal,
       kills: world.kills,
       leaks: world.leaks,
+      event: world.event,
+      eventUntil: world.eventUntil,
+      eventDone: world.eventDone,
+      eventProgress: world.eventProgress,
+      eventNeed: world.eventNeed,
+      lampSteady: world.lampSteady,
+      lampOut: world.lampOut,
+      clinicUsed: world.clinicUsed,
     }
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       v: 1,
@@ -916,11 +1144,18 @@ export function load() {
     world.tutorialDone = !!data.tutorialDone
     world.bestNight = data.bestNight ?? 0
     world.banked = data.banked ?? 0
-    world.permanent = data.permanent ?? { barricade: 0, battery: 0, capacitor: 0 }
+    world.permanent = fillRanks(data.permanent)
     if (data.run && data.run.phase !== 'title') {
       blankRun()
       Object.assign(world, data.run)
-      world.enemies = data.run.enemies ?? []
+      world.ranks = fillRanks(data.run.ranks)
+      world.enemies = (data.run.enemies ?? []).map(enemy => ({
+        ...enemy,
+        weave: enemy.weave ?? 0,
+        marked: !!enemy.marked,
+      }))
+      world.event = data.run.event ?? 'none'
+      world.eventDone = data.run.eventDone ?? world.event === 'none'
       world.preview = false
     } else {
       world.phase = 'title'
@@ -941,7 +1176,7 @@ export function applyShot(shot: string) {
   world.tutorialDone = false
   world.bestNight = 0
   world.banked = 0
-  world.permanent = { barricade: 0, battery: 0, capacitor: 0 }
+  world.permanent = emptyRanks()
   applyMetaToFresh()
   if (shot === 'title') {
     world.phase = 'title'
@@ -984,10 +1219,91 @@ export function applyShot(shot: string) {
       maxHp: maxHp(kind),
       flash: 0,
       bite: 0.4,
+      weave: lane === 0 ? 0.4 : 1.7,
+      marked: false,
     }))
+    world.event = 'none'
+    world.eventDone = true
     popup(-1.1, 1.8, 3.1, '12', '#f4efe4')
     popup(1.2, 1.9, 3.4, '+2 SCRAP', '#ffd58a')
     burst(-1.05, 0.9, 3.5, '#b7fff4', 10)
+  } else if (shot === 'night2') {
+    world.phase = 'night'
+    world.day = 2
+    world.tutorial = false
+    world.tutorialDone = true
+    world.rescued = true
+    world.assigned = true
+    world.ranks.clinic = 1
+    world.barricade = 78
+    world.barricadeMax = 120
+    world.power = 44
+    world.scrap = 16
+    world.core = 90
+    world.morale = 74
+    world.nightTime = 12
+    world.nightDuration = 30
+    world.overdriveUntil = 0
+    world.overdriveReady = 0
+    world.hold = true
+    world.demo = true
+    world.spawned = 6
+    world.spawnGoal = 8
+    world.event = 'curb'
+    world.eventUntil = 20
+    world.eventDone = false
+    world.eventNeed = 2
+    world.eventProgress = 1
+    const specs: Array<[Kind, 0 | 1, number, number]> = [
+      ['stalker', 0, 0.52, 12],
+      ['runner', 1, 0.46, 10],
+      ['husk', 0, 0.6, 22],
+      ['stalker', 1, 0.38, 16],
+    ]
+    world.enemies = specs.map(([kind, lane, t, hp]) => ({
+      id: uid++, kind, lane, t, hp, maxHp: maxHp(kind), flash: 0, bite: 0.3, weave: lane + 0.6, marked: false,
+    }))
+    popup(1.3, 1.8, 3.6, '8', '#f4efe4')
+    popup(-1.2, 1.7, 3.2, '+2 SCRAP', '#ffd58a')
+  } else if (shot === 'night3') {
+    world.phase = 'night'
+    world.day = 3
+    world.tutorialDone = true
+    world.rescued = true
+    world.assigned = true
+    world.ranks.clinic = 1
+    world.ranks.rations = 1
+    world.ranks.capacitor = 1
+    world.barricade = 70
+    world.barricadeMax = 120
+    world.power = 38
+    world.scrap = 20
+    world.core = 84
+    world.morale = 68
+    world.nightTime = 11
+    world.nightDuration = 36
+    world.overdriveUntil = 99
+    world.overdriveReady = 0
+    world.hold = true
+    world.demo = true
+    world.spawned = 5
+    world.spawnGoal = 10
+    world.event = 'brute'
+    world.eventUntil = 24
+    world.eventDone = false
+    world.eventNeed = 1
+    world.eventProgress = 0
+    const specs: Array<[Kind, 0 | 1, number, number, boolean]> = [
+      ['brute', 0, 0.4, 48, true],
+      ['runner', 1, 0.55, 8, false],
+      ['stalker', 1, 0.48, 14, false],
+      ['husk', 0, 0.62, 18, false],
+    ]
+    world.enemies = specs.map(([kind, lane, t, hp, marked]) => ({
+      id: uid++, kind, lane, t, hp, maxHp: maxHp(kind), flash: kind === 'brute' ? 0.1 : 0, bite: 0.2, weave: 1.1, marked,
+    }))
+    popup(0.2, 2.1, 3.5, '14', '#f4efe4')
+    burst(0.1, 1.1, 3.6, '#ffb15a', 8)
   } else if (shot === 'upgrade') {
     world.phase = 'upgrade'
     world.day = 1

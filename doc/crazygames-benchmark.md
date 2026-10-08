@@ -71,3 +71,11 @@ Stay off the host bundle. A `build:guest` target renders the same low-poly distr
 - **First three minutes.** Night 1 is a short, winnable husk wave and ends in a dawn card, then a paid upgrade (reinforce or battery). A third card, sentry capacitor, stays locked until night 2 is cleared, and night 2 introduces cable stalkers. That is the “come back” hook. No late-game dump.
 - **Memory.** `localStorage` key `cg_afterlight_guest_v1` keeps the run, best night, mute, tutorial flag, and a small supply cache bought with scrap banked at dawn.
 - **Audio.** Two CC0 beds (day: EmptyCity by yd, night: Dark City by cinameng) plus an original synth layer for UI, shots, hits, skills, dawn, and failure. Credits live in `src/guest/audio/LICENSE.txt`.
+
+## Polish round
+
+The first guest still read as a lit block on an empty lawn, and the first session was one upgrade. The frame now continues into neighbouring blocks, a windowed skyline, and fog at the edges. Nights 1–3 each add a threat and a call:
+
+- Night 1: husks only, short. The west lamp flickers; overload steadies it. Dawn unlocks gate plates, a clinic cot, or a ration crate.
+- Night 2: stalkers weave and runners slip the gate. A curb call asks for two of those kills. Dawn opens relay coils.
+- Night 3: a marked brute charges the center. The clinic, if taken, patches a hurt gate once. The ration crate, if taken, pays scrap at dusk.

@@ -9,6 +9,7 @@ import {
   buyPermanent,
   cacheCost,
   chooseUpgrade,
+  dawnOffers,
   load,
   onSfx,
   openUpgrade,
@@ -19,6 +20,7 @@ import {
   repairCooldown,
   retryNight,
   SAVE_KEY,
+  upgradeCost,
   skipTutorial,
   subscribe,
   toggleMute,
@@ -77,9 +79,19 @@ function Hud() {
       ? ['02', 'Send Lin to the lit workbench']
       : world.phase === 'repair' || world.phase === 'repairing'
         ? ['03', 'Spend 10 scrap on the south barricade']
-        : world.phase === 'night' && world.day === 1
-          ? ['04', 'Click husks. Press 1 when they enter the light.']
-          : null
+        : world.phase === 'night' && world.event !== 'none' && !world.eventDone
+          ? world.event === 'flicker'
+            ? ['!', 'West lamp is failing. Press 1 to steady it.']
+            : world.event === 'curb'
+              ? ['!', `Stalkers on the curb. ${world.eventProgress}/${world.eventNeed} down.`]
+              : ['!', 'Marked brute in the center. Burn it before the gate.']
+          : world.phase === 'night' && world.day === 1
+            ? ['04', 'Click husks. Press 1 when they bunch in the light.']
+            : world.phase === 'night' && world.day === 2
+              ? ['05', 'Runners are the small fast ones. They slip the gate.']
+              : world.phase === 'night' && world.day === 3
+                ? ['06', 'Brutes soak shots. Hold them in the overload.']
+                : null
   return (
     <>
       <div className="cg-top">
@@ -96,7 +108,7 @@ function Hud() {
         <span><i className="cg-swatch cg-swatch--scrap" />{Math.round(world.scrap)}<small>Scrap</small></span>
         <span><i className="cg-swatch cg-swatch--morale" />{Math.round(world.morale)}<small>Morale</small></span>
       </div>}
-      {objective && <aside className="cg-objective"><em>{objective[0]}</em><b>{objective[1]}</b></aside>}
+      {objective && <aside className={objective[0] === '!' ? 'cg-objective cg-objective--event' : 'cg-objective'}><em>{objective[0]}</em><b>{objective[1]}</b></aside>}
       {world.phase === 'night' && <div className="cg-bars">
         <label>Barricade<i><b style={{ width: `${world.barricade / world.barricadeMax * 100}%` }} /></i><em>{Math.ceil(world.barricade)}</em></label>
         <label>Core<i><b style={{ width: `${world.core}%` }} /></i><em>{Math.ceil(world.core)}</em></label>
@@ -133,10 +145,10 @@ function Title() {
       </div>
       {showCache && <div className="cg-cache">
         <b>Supply cache</b>
-        {(['barricade', 'battery', 'capacitor'] as const).map(kind => {
+        {(['barricade', 'battery', 'capacitor', 'clinic', 'rations'] as const).map(kind => {
           const rank = world.permanent[kind]
           const cost = cacheCost(kind)
-          const label = kind === 'barricade' ? 'Stouter barricade' : kind === 'battery' ? 'Reserve cells' : 'Faster relays'
+          const label = kind === 'barricade' ? 'Stouter barricade' : kind === 'battery' ? 'Reserve cells' : kind === 'capacitor' ? 'Faster relays' : kind === 'clinic' ? 'Clinic stores' : 'Ration stocks'
           return <button key={kind} disabled={rank >= 3 || world.banked < cost} onClick={() => buyPermanent(kind)}>
             <span>{label}</span><small>{rank >= 3 ? 'Maxed' : `${cost} cache · rank ${rank}/3`}</small>
           </button>
@@ -157,10 +169,12 @@ function Dusk() {
         <span>Warden Jo</span>
         <h2>{first ? 'Night 1 is a short one' : `Night ${world.day}`}</h2>
         <p>{first
-          ? 'Husks take the two roads. Click them to fire the lamps. Press 1 when a pack stands in the light.'
+          ? 'Husks take the two roads. Click them. When the west lamp flickers, press 1.'
           : world.day === 2
-            ? 'Cable stalkers run the curb. Drop the low fast ones before the husks pile up.'
-            : 'The horde is thicker. Spend scrap on the barricade before the core starts taking hits.'}</p>
+            ? 'Stalkers weave. Runners are smaller and slip the barricade. When the curb call hits, drop two of them.'
+            : world.day === 3
+              ? 'A marked brute charges the center road. Burn it down before it reaches the gate. Your dawn pick is already on the block.'
+              : 'The streets past the block are awake. Spend scrap before the core starts taking hits.'}</p>
         <button className="cg-primary" onClick={beginNight}>Stand watch</button>
       </div>
     </section>
@@ -187,31 +201,38 @@ function Dawn() {
   )
 }
 
+const CARD_COPY: Record<'barricade' | 'battery' | 'capacitor' | 'clinic' | 'rations', [string, string]> = {
+  barricade: ['Gate plates', 'Thicker barricade next night, and it heals 30 now'],
+  clinic: ['Open the clinic', 'A cot by the workshop. Once a night it patches a hurt gate'],
+  rations: ['Ration crate', 'Scrap and morale at every dusk. The crate stays on the lot'],
+  battery: ['Reserve cells', '+22 power now, and the generator recharges faster'],
+  capacitor: ['Relay coils', 'Harder, faster shots. Overload burns a little longer'],
+}
+
 function Upgrade() {
   useWorld()
   if (world.phase !== 'upgrade') return null
-  const locked = world.cleared < 2
-  const poor = world.scrap < 8
+  const offers = dawnOffers()
   return (
     <section className="cg-upgrade">
       <header>
-        <p className="cg-kicker">One choice before dusk</p>
+        <p className="cg-kicker">{world.day <= 1 ? 'First unlock' : world.day === 2 ? 'Night 2 paid off' : 'Before the next dark'}</p>
         <h2>Spend the scrap</h2>
-        <p>You have {Math.round(world.scrap)} scrap. The locked relay opens after night 2.</p>
+        <p>You have {Math.round(world.scrap)} scrap. What you pick is on the block next night.</p>
       </header>
       <div className="cg-upgrade__grid">
-        <button disabled={poor} onClick={() => chooseUpgrade('barricade')}>
-          <b>Reinforce barricade</b>
-          <small>8 scrap · cap +20 and heal 30</small>
-        </button>
-        <button disabled={poor} onClick={() => chooseUpgrade('battery')}>
-          <b>Expand battery</b>
-          <small>8 scrap · +22 power, faster regen</small>
-        </button>
-        <button disabled={locked || poor} onClick={() => chooseUpgrade('capacitor')}>
-          <b>Sentry capacitor</b>
-          <small>{locked ? 'Clears after night 2' : '8 scrap · harder, faster shots'}</small>
-        </button>
+        {offers.map(kind => {
+          const [title, detail] = CARD_COPY[kind]
+          const cost = upgradeCost(kind)
+          const cap = kind === 'clinic' || kind === 'rations' ? 2 : 3
+          const maxed = world.ranks[kind] >= cap
+          return (
+            <button key={kind} disabled={maxed || world.scrap < cost} onClick={() => chooseUpgrade(kind)}>
+              <b>{title}</b>
+              <small>{maxed ? 'Already maxed' : `${cost} scrap · ${detail}`}</small>
+            </button>
+          )
+        })}
       </div>
     </section>
   )

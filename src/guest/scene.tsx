@@ -22,6 +22,10 @@ const MODEL = {
   generator: './models/scene__generator.glb',
   workbench: './models/scene__workbench.glb',
   barricade: './models/scene__barricade.glb',
+  house: './models/scene__house.glb',
+  streetLamp: './models/scene__lamp.glb',
+  tree: './models/plants__roundTree.glb',
+  fence: './models/scene__fence.glb',
 } as const
 
 type AssetKey = keyof typeof MODEL
@@ -257,10 +261,13 @@ function EnemySlot({ index }: { index: number }) {
     const [x, y, z] = enemyPosition(enemy)
     ref.current.position.set(x, y, z)
     ref.current.rotation.y = enemy.lane === 0 ? 2.5 : -2.5
-    const scale = enemy.kind === 'brute' ? 1.28 : 1
+    const thin = enemy.kind === 'stalker' || enemy.kind === 'runner'
+    const scale = enemy.kind === 'brute' ? 1.34 : enemy.kind === 'runner' ? 0.72 : enemy.kind === 'stalker' ? 0.96 : 1
     ref.current.scale.setScalar(scale * (1 + enemy.flash * 0.35))
-    if (husk.current) husk.current.visible = enemy.kind !== 'stalker'
-    if (stalker.current) stalker.current.visible = enemy.kind === 'stalker'
+    if (husk.current) husk.current.visible = !thin
+    if (stalker.current) stalker.current.visible = thin
+    const mark = ref.current.getObjectByName('cg-mark')
+    if (mark) mark.visible = enemy.marked
     if (bar.current) {
       const ratio = Math.max(0.05, enemy.hp / enemy.maxHp)
       bar.current.scale.x = ratio
@@ -290,6 +297,10 @@ function EnemySlot({ index }: { index: number }) {
       <mesh ref={bar} position={[0, 1.55, 0]}>
         <boxGeometry args={[0.64, 0.06, 0.04]} />
         <meshBasicMaterial color="#ff6d62" />
+      </mesh>
+      <mesh name="cg-mark" position={[0, 1.9, 0]} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
+        <ringGeometry args={[0.34, 0.48, 18]} />
+        <meshBasicMaterial color="#ffd58a" toneMapped={false} />
       </mesh>
     </group>
   )
@@ -419,6 +430,165 @@ function Halo({ position, color, size, opacity }: { position: [number, number, n
   )
 }
 
+const HOUSES: Array<[number, number, number, number]> = [
+  [-6.7, -5.6, 0.3, 1.7],
+  [-6.9, -2.2, 0.1, 1.55],
+  [-6.6, 1.4, -0.2, 1.75],
+  [-6.8, 4.8, 0.25, 1.5],
+  [6.6, -5.4, 2.8, 1.7],
+  [6.8, -1.8, 3.0, 1.55],
+  [6.5, 1.8, 2.6, 1.8],
+  [6.9, 5.1, -2.7, 1.45],
+  [-4.6, -7.6, 0.05, 1.65],
+  [-1.2, -7.9, -0.1, 1.45],
+  [2.4, -7.7, 0.15, 1.6],
+  [5.2, -7.5, 0.0, 1.4],
+]
+
+const LAMPS: Array<[number, number]> = [
+  [-5.6, -6.2], [-5.5, 0.2], [-5.7, 4.2],
+  [5.5, -6.0], [5.6, 0.6], [5.4, 4.6],
+  [-2.8, -6.8], [3.2, -6.6],
+]
+
+const TREES: Array<[number, number, number]> = [
+  [-5.9, -4.0, 2.1], [-6.1, 2.8, 1.9], [5.8, -3.8, 2.0], [6.0, 3.0, 2.2],
+  [-3.8, -6.6, 1.8], [4.4, -6.5, 1.7],
+]
+
+const SKYLINE: Array<[number, number, number, number, number]> = [
+  [-8.4, -6.8, 1.5, 1.4, 3.6],
+  [-7.6, -4.2, 1.2, 1.3, 5.1],
+  [-8.2, -1.2, 1.6, 1.4, 2.8],
+  [-7.8, 2.4, 1.3, 1.5, 4.4],
+  [-8.0, 5.4, 1.5, 1.3, 3.2],
+  [8.2, -6.6, 1.4, 1.5, 4.2],
+  [7.6, -3.6, 1.2, 1.3, 5.6],
+  [8.3, 0.4, 1.6, 1.4, 3.1],
+  [7.7, 3.6, 1.3, 1.4, 4.8],
+  [8.1, 6.2, 1.5, 1.3, 2.6],
+  [-5.2, -8.2, 1.6, 1.3, 4.0],
+  [-1.6, -8.6, 1.3, 1.4, 6.2],
+  [1.8, -8.5, 1.8, 1.4, 3.5],
+  [5.0, -8.3, 1.4, 1.3, 5.0],
+  [-4.8, 7.6, 1.5, 1.2, 2.4],
+  [0.2, 8.0, 1.8, 1.3, 3.2],
+  [4.6, 7.7, 1.4, 1.2, 2.2],
+  [-5.5, -1.5, 1.1, 1.1, 2.6],
+  [-5.4, 1.6, 1.2, 1.0, 3.4],
+  [-5.6, 4.2, 1.0, 1.1, 2.2],
+  [5.5, -1.2, 1.1, 1.0, 2.8],
+  [5.4, 2.2, 1.2, 1.1, 3.6],
+  [5.6, 4.8, 1.0, 1.0, 2.3],
+  [-3.2, 6.4, 1.3, 1.0, 1.8],
+  [0.4, 6.6, 1.5, 1.1, 2.2],
+  [3.4, 6.5, 1.2, 1.0, 1.7],
+]
+
+function useWindowMaterial() {
+  return useMemo(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 64
+    canvas.height = 96
+    const context = canvas.getContext('2d')!
+    context.fillStyle = '#141b22'
+    context.fillRect(0, 0, 64, 96)
+    for (let y = 8; y < 90; y += 14) {
+      for (let x = 6; x < 58; x += 12) {
+        const roll = Math.abs(Math.sin(x * 1.7 + y * 0.37))
+        if (roll < 0.28) continue
+        context.fillStyle = roll > 0.78 ? '#ffd58a' : roll > 0.55 ? '#7dfff0' : '#24303a'
+        context.fillRect(x, y, 6, 8)
+      }
+    }
+    const map = new THREE.CanvasTexture(canvas)
+    map.colorSpace = THREE.SRGBColorSpace
+    map.wrapS = map.wrapT = THREE.RepeatWrapping
+    return new THREE.MeshBasicMaterial({ map, color: '#f2f6f8', toneMapped: false, fog: false })
+  }, [])
+}
+
+function CityDress() {
+  const houses = useGLTF(MODEL.house)
+  const lamps = useGLTF(MODEL.streetLamp)
+  const trees = useGLTF(MODEL.tree)
+  const fences = useGLTF(MODEL.fence)
+  const windows = useWindowMaterial()
+  const clones = useMemo(() => {
+    const mute = (object: THREE.Object3D) => {
+      object.traverse(child => {
+        const mesh = child as THREE.Mesh
+        if (mesh.isMesh) mesh.raycast = () => undefined
+      })
+      return object
+    }
+    return {
+      houses: HOUSES.map(() => mute(houses.scene.clone(true))),
+      lamps: LAMPS.map(() => mute(lamps.scene.clone(true))),
+      trees: TREES.map(() => mute(trees.scene.clone(true))),
+      fences: Array.from({ length: 10 }, () => mute(fences.scene.clone(true))),
+    }
+  }, [fences.scene, houses.scene, lamps.scene, trees.scene])
+  return (
+    <group>
+      {HOUSES.map(([x, z, rot, scale], index) => (
+        <primitive key={`h${index}`} object={clones.houses[index]} position={[x, 0.5 + 0.34 * scale, z]} rotation={[0, rot, 0]} scale={scale} />
+      ))}
+      {LAMPS.map(([x, z], index) => (
+        <primitive key={`l${index}`} object={clones.lamps[index]} position={[x, 0.5 + 0.5 * 1.35, z]} scale={1.35} />
+      ))}
+      {TREES.map(([x, z, scale], index) => (
+        <primitive key={`t${index}`} object={clones.trees[index]} position={[x, 0.55, z]} scale={scale} />
+      ))}
+      {clones.fences.map((fence, index) => {
+        const side = index < 5 ? -1 : 1
+        const z = -6 + (index % 5) * 3.1
+        return <primitive key={`f${index}`} object={fence} position={[side * 7.4, 0.72, z]} rotation={[0, side > 0 ? Math.PI / 2 : -Math.PI / 2, 0]} scale={2.4} />
+      })}
+      {SKYLINE.map(([x, z, w, d, h], index) => (
+        <mesh key={`s${index}`} position={[x, 0.5 + h / 2, z]} material={windows} raycast={() => undefined}>
+          <boxGeometry args={[w, h, d]} />
+        </mesh>
+      ))}
+      {LAMPS.map(([x, z], index) => (
+        <pointLight key={`p${index}`} position={[x, 2.1, z]} color={index % 2 ? '#ffd58a' : '#8ef6ea'} intensity={index % 3 === 0 ? 6 : 3.2} distance={5.5} decay={2} />
+      ))}
+      <mesh position={[-6.15, 0.58, 0.4]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow raycast={() => undefined}>
+        <planeGeometry args={[2.8, 16]} />
+        <meshStandardMaterial color="#2a3130" roughness={0.92} />
+      </mesh>
+      <mesh position={[6.15, 0.58, 0.4]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow raycast={() => undefined}>
+        <planeGeometry args={[2.8, 16]} />
+        <meshStandardMaterial color="#2a3130" roughness={0.92} />
+      </mesh>
+      <mesh position={[0, 0.58, 6.8]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow raycast={() => undefined}>
+        <planeGeometry args={[18, 3.2]} />
+        <meshStandardMaterial color="#34302c" roughness={0.9} />
+      </mesh>
+      <mesh position={[0, 0.58, -7.1]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow raycast={() => undefined}>
+        <planeGeometry args={[18, 2.6]} />
+        <meshStandardMaterial color="#2c3332" roughness={0.9} />
+      </mesh>
+      <Pool position={[-5.6, 0.62, 0.2]} color="#ffd58a" size={[3.2, 2.2]} opacity={0.18} />
+      <Pool position={[8.3, 0.56, 0.4]} color="#7dfff0" size={[3.4, 2.4]} opacity={0.14} />
+      <Pool position={[0.4, 0.56, -9.4]} color="#ffd58a" size={[4.2, 2.2]} opacity={0.12} />
+      <Pool position={[0.2, 0.56, 9.6]} color="#ffb15a" size={[3.6, 2.0]} opacity={0.1} />
+    </group>
+  )
+}
+
+function FlickerLight({ position, color, base, distance }: { position: [number, number, number]; color: string; base: number; distance: number }) {
+  const light = useRef<THREE.PointLight>(null)
+  useFrame(({ clock }) => {
+    if (!light.current) return
+    const failing = world.event === 'flicker' && !world.eventDone
+    const pulse = failing ? 0.12 + Math.abs(Math.sin(clock.elapsedTime * 16)) : 1
+    const dim = world.lampOut ? 0.28 : world.lampSteady ? 1.18 : 1
+    light.current.intensity = base * pulse * dim
+  })
+  return <pointLight ref={light} position={position} color={color} intensity={base} distance={distance} decay={2} />
+}
+
 function District() {
   const rev = useSyncExternalStore(subscribe, () => world.rev)
   void rev
@@ -430,14 +600,31 @@ function District() {
   const ping = world.phase === 'rescue' ? 'house' : world.phase === 'assign' ? 'bench' : world.phase === 'repair' ? 'barricade' : ''
   return (
     <group ref={group} position={[0, -0.15, 0.3]} rotation={[0, -0.08, 0]}>
-      <mesh position={[0, 0.1, 0]} receiveShadow>
-        <boxGeometry args={[80, 0.2, 80]} />
-        <meshStandardMaterial color="#17301f" roughness={1} />
+      <mesh position={[0, 0.08, 0]} receiveShadow>
+        <boxGeometry args={[90, 0.16, 90]} />
+        <meshStandardMaterial color="#101614" roughness={1} />
       </mesh>
-      <mesh position={[0, 0.482, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[80, 80]} />
-        <meshStandardMaterial color="#24501f" roughness={1} />
+      <mesh position={[0, 0.2, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[90, 90]} />
+        <meshStandardMaterial color="#161c18" roughness={1} />
       </mesh>
+      <mesh position={[-8.6, 0.22, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[6.5, 28]} />
+        <meshStandardMaterial color="#1c2420" roughness={0.96} />
+      </mesh>
+      <mesh position={[8.6, 0.22, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[6.5, 28]} />
+        <meshStandardMaterial color="#1a221e" roughness={0.96} />
+      </mesh>
+      <mesh position={[0, 0.22, -12.2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[36, 8]} />
+        <meshStandardMaterial color="#141a18" roughness={1} />
+      </mesh>
+      <mesh position={[0, 0.22, 12]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[36, 7]} />
+        <meshStandardMaterial color="#141a18" roughness={1} />
+      </mesh>
+      <CityDress />
       <mesh position={[0, 0.6, 0]} rotation={[-Math.PI / 2, 0, 0]}
         onPointerDown={(event: ThreeEvent<PointerEvent>) => {
           event.stopPropagation()
@@ -497,7 +684,7 @@ function District() {
         </mesh>
         <Asset assetId="relayLamp" position={[-2.22, 0.48, 2.02]} scale={0.68} />
         <Asset assetId="relayLamp" position={[2.3, 0.38, 2.12]} rotation={[0, Math.PI, 0]} scale={0.68} />
-        <pointLight position={[-2.22, 1.56, 2.02]} color={lampColor} intensity={lamps ? overdrive ? 20 : 13 : 0.2} distance={4.4} decay={2} />
+        <FlickerLight position={[-2.22, 1.56, 2.02]} color={lampColor} base={lamps ? overdrive ? 20 : 13 : 0.2} distance={4.4} />
         <pointLight position={[2.3, 1.48, 2.12]} color={lampColor} intensity={lamps ? overdrive ? 20 : 13 : 0.2} distance={4.4} decay={2} />
         <Halo position={[-2.22, 1.56, 2.02]} color={lampColor} size={overdrive ? 0.9 : 0.72} opacity={lamps ? 0.46 : 0.05} />
         <Halo position={[2.3, 1.48, 2.12]} color={lampColor} size={overdrive ? 0.9 : 0.72} opacity={lamps ? 0.46 : 0.05} />
@@ -505,8 +692,34 @@ function District() {
         <Pool position={[2.3, 0.42, 2.12]} color={lampColor} size={[3.6, 2.5]} opacity={lamps ? overdrive ? 0.2 : 0.13 : 0.02} />
       </>}
 
+      {world.ranks.clinic > 0 && <>
+        <mesh position={[-2.55, 0.78, -0.55]}>
+          <boxGeometry args={[0.42, 0.08, 0.42]} />
+          <meshBasicMaterial color="#ff8d7a" toneMapped={false} />
+        </mesh>
+        <mesh position={[-2.55, 0.95, -0.55]}>
+          <boxGeometry args={[0.08, 0.28, 0.08]} />
+          <meshBasicMaterial color="#ffd5ce" toneMapped={false} />
+        </mesh>
+        <pointLight position={[-2.55, 1.3, -0.55]} color="#ff8d7a" intensity={world.clinicPulse > 0 ? 9 : 2.4} distance={3.2} decay={2} />
+      </>}
+      {world.ranks.rations > 0 && <>
+        <mesh position={[-1.55, 0.68, 0.62]} castShadow>
+          <boxGeometry args={[0.46, 0.32, 0.38]} />
+          <meshStandardMaterial color="#c4a574" roughness={0.8} />
+        </mesh>
+        <mesh position={[-1.55, 0.88, 0.62]}>
+          <boxGeometry args={[0.28, 0.06, 0.22]} />
+          <meshBasicMaterial color="#ffd58a" toneMapped={false} />
+        </mesh>
+      </>}
+      {world.ranks.capacitor > 0 && <>
+        <Halo position={[-2.22, 1.7, 2.02]} color="#7dfff0" size={0.42} opacity={0.55} />
+        <Halo position={[2.3, 1.62, 2.12]} color="#7dfff0" size={0.42} opacity={0.55} />
+      </>}
+
       <ActorRig />
-      {Array.from({ length: 12 }, (_, index) => <EnemySlot key={index} index={index} />)}
+      {Array.from({ length: 16 }, (_, index) => <EnemySlot key={index} index={index} />)}
       <SparkField />
       <Beams />
       <Floats />
@@ -547,13 +760,13 @@ function Lights() {
   const night = moodNight()
   return (
     <>
-      <color attach="background" args={[night ? '#0c141c' : '#121b24']} />
-      <fog attach="fog" args={[night ? '#0c141c' : '#121b24', 18, 36]} />
-      <ambientLight intensity={night ? 0.28 : 0.36} color="#c5d2df" />
-      <hemisphereLight args={['#d7e4f2', '#1a2a22', night ? 0.42 : 0.55]} />
+      <color attach="background" args={[night ? '#070b10' : '#121820']} />
+      <fog attach="fog" args={[night ? '#070b10' : '#121820', night ? 24 : 28, night ? 46 : 52]} />
+      <ambientLight intensity={night ? 0.22 : 0.34} color="#c5d2df" />
+      <hemisphereLight args={['#9fb4c8', '#121814', night ? 0.38 : 0.5]} />
       <directionalLight
         position={[9, 16, 8]}
-        intensity={night ? 1.85 : 2.55}
+        intensity={night ? 1.55 : 2.35}
         color={night ? '#d5deea' : '#fff6e8'}
         castShadow
         shadow-mapSize={[2048, 2048]}
