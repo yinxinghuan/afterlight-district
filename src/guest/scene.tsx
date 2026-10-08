@@ -431,58 +431,53 @@ function Halo({ position, color, size, opacity }: { position: [number, number, n
 }
 
 const HOUSES: Array<[number, number, number, number]> = [
-  [-6.7, -5.6, 0.3, 1.7],
-  [-6.9, -2.2, 0.1, 1.55],
-  [-6.6, 1.4, -0.2, 1.75],
-  [-6.8, 4.8, 0.25, 1.5],
-  [6.6, -5.4, 2.8, 1.7],
-  [6.8, -1.8, 3.0, 1.55],
-  [6.5, 1.8, 2.6, 1.8],
-  [6.9, 5.1, -2.7, 1.45],
-  [-4.6, -7.6, 0.05, 1.65],
-  [-1.2, -7.9, -0.1, 1.45],
-  [2.4, -7.7, 0.15, 1.6],
-  [5.2, -7.5, 0.0, 1.4],
+  [-6.7, -5.6, 0.3, 1.55],
+  [-6.9, -2.6, 0.1, 1.4],
+  [6.4, -5.8, 2.8, 1.5],
+  [6.6, -2.8, 3.0, 1.35],
+  [-4.8, -7.8, 0.05, 1.5],
+  [-1.4, -8.1, -0.1, 1.35],
+  [2.2, -7.9, 0.15, 1.45],
+  [5.4, -7.6, 0.0, 1.3],
 ]
 
 const LAMPS: Array<[number, number]> = [
-  [-5.6, -6.2], [-5.5, 0.2], [-5.7, 4.2],
-  [5.5, -6.0], [5.6, 0.6], [5.4, 4.6],
-  [-2.8, -6.8], [3.2, -6.6],
+  [-5.6, -6.2], [-5.4, -1.2],
+  [5.4, -6.0], [5.5, -1.4],
+  [-3.4, -6.8], [3.6, -6.6],
+  [-5.2, 5.6], [5.3, 5.8],
 ]
 
 const TREES: Array<[number, number, number]> = [
-  [-5.9, -4.0, 2.1], [-6.1, 2.8, 1.9], [5.8, -3.8, 2.0], [6.0, 3.0, 2.2],
-  [-3.8, -6.6, 1.8], [4.4, -6.5, 1.7],
+  [-6.2, -4.2, 1.7], [-6.0, -0.4, 1.5],
+  [6.1, -4.4, 1.6], [6.2, -0.8, 1.5],
+  [-4.2, -6.8, 1.5], [4.6, -6.6, 1.4],
 ]
 
+// Tall blocks stay behind the play area (negative z) and on the far side.
+// The camera sits at +x/+z, so anything tall there covers the south road.
 const SKYLINE: Array<[number, number, number, number, number]> = [
-  [-8.4, -6.8, 1.5, 1.4, 3.6],
-  [-7.6, -4.2, 1.2, 1.3, 5.1],
-  [-8.2, -1.2, 1.6, 1.4, 2.8],
-  [-7.8, 2.4, 1.3, 1.5, 4.4],
-  [-8.0, 5.4, 1.5, 1.3, 3.2],
-  [8.2, -6.6, 1.4, 1.5, 4.2],
-  [7.6, -3.6, 1.2, 1.3, 5.6],
-  [8.3, 0.4, 1.6, 1.4, 3.1],
-  [7.7, 3.6, 1.3, 1.4, 4.8],
-  [8.1, 6.2, 1.5, 1.3, 2.6],
-  [-5.2, -8.2, 1.6, 1.3, 4.0],
-  [-1.6, -8.6, 1.3, 1.4, 6.2],
-  [1.8, -8.5, 1.8, 1.4, 3.5],
-  [5.0, -8.3, 1.4, 1.3, 5.0],
-  [-4.8, 7.6, 1.5, 1.2, 2.4],
-  [0.2, 8.0, 1.8, 1.3, 3.2],
-  [4.6, 7.7, 1.4, 1.2, 2.2],
-  [-5.5, -1.5, 1.1, 1.1, 2.6],
-  [-5.4, 1.6, 1.2, 1.0, 3.4],
-  [-5.6, 4.2, 1.0, 1.1, 2.2],
-  [5.5, -1.2, 1.1, 1.0, 2.8],
-  [5.4, 2.2, 1.2, 1.1, 3.6],
-  [5.6, 4.8, 1.0, 1.0, 2.3],
-  [-3.2, 6.4, 1.3, 1.0, 1.8],
-  [0.4, 6.6, 1.5, 1.1, 2.2],
-  [3.4, 6.5, 1.2, 1.0, 1.7],
+  [-8.8, -8.2, 1.6, 1.5, 4.4],
+  [-5.6, -9.4, 1.5, 1.6, 6.6],
+  [-2.2, -9.8, 1.8, 1.5, 5.4],
+  [1.2, -9.6, 1.6, 1.6, 7.2],
+  [4.8, -9.2, 1.7, 1.4, 4.8],
+  [7.8, -8.4, 1.5, 1.5, 5.8],
+  [-9.4, -4.6, 1.4, 1.4, 4.8],
+  [-9.6, -1.2, 1.3, 1.3, 3.6],
+  [-9.2, 0.8, 1.3, 1.2, 2.4],
+]
+
+const LOW: Array<[number, number, number, number, number, string]> = [
+  [-5.4, 6.4, 1.6, 1.1, 0.42, '#1c2830'],
+  [-3.6, 7.5, 1.8, 0.7, 0.28, '#243038'],
+  [0.2, 7.8, 2.2, 0.55, 0.22, '#1a2428'],
+  [3.4, 7.4, 1.5, 0.8, 0.32, '#202a30'],
+  [5.6, 5.2, 1.5, 1.15, 0.48, '#1e2a32'],
+  [6.3, 2.4, 1.35, 1.05, 0.4, '#243038'],
+  [6.5, -0.2, 1.2, 0.9, 0.36, '#1a242c'],
+  [-6.2, 3.6, 1.2, 0.9, 0.34, '#1c2830'],
+  [-5.8, 1.2, 1.3, 0.85, 0.3, '#222c32'],
 ]
 
 function useWindowMaterial() {
@@ -504,7 +499,7 @@ function useWindowMaterial() {
     const map = new THREE.CanvasTexture(canvas)
     map.colorSpace = THREE.SRGBColorSpace
     map.wrapS = map.wrapT = THREE.RepeatWrapping
-    return new THREE.MeshBasicMaterial({ map, color: '#f2f6f8', toneMapped: false, fog: false })
+    return new THREE.MeshBasicMaterial({ map, color: '#9aa8b0' })
   }, [])
 }
 
@@ -518,7 +513,25 @@ function CityDress() {
     const mute = (object: THREE.Object3D) => {
       object.traverse(child => {
         const mesh = child as THREE.Mesh
-        if (mesh.isMesh) mesh.raycast = () => undefined
+        if (!mesh.isMesh) return
+        mesh.raycast = () => undefined
+        const sources = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+        const toned = sources.map(source => {
+          const mat = source.clone() as THREE.MeshStandardMaterial
+          if (!mat.color) return mat
+          const { r, g, b } = mat.color
+          if (r > 0.55 && g < 0.28 && b < 0.22) mat.color.set('#3d4a52')
+          else if (r > 0.65 && g > 0.55 && b > 0.4) mat.color.set('#2a3840')
+          else if (r > 0.65 && g > 0.3 && b < 0.25) mat.color.set('#6e5840')
+          else if (b > 0.75 && g > 0.35) mat.color.set('#c4a06a')
+          else mat.color.lerp(new THREE.Color('#1a242c'), 0.35)
+          if (mat.emissive) {
+            mat.emissive.set('#ffd58a')
+            mat.emissiveIntensity = b > 0.75 ? 0.35 : 0.04
+          }
+          return mat
+        })
+        mesh.material = toned.length === 1 ? toned[0] : toned
       })
       return object
     }
@@ -526,7 +539,7 @@ function CityDress() {
       houses: HOUSES.map(() => mute(houses.scene.clone(true))),
       lamps: LAMPS.map(() => mute(lamps.scene.clone(true))),
       trees: TREES.map(() => mute(trees.scene.clone(true))),
-      fences: Array.from({ length: 10 }, () => mute(fences.scene.clone(true))),
+      fences: Array.from({ length: 8 }, () => mute(fences.scene.clone(true))),
     }
   }, [fences.scene, houses.scene, lamps.scene, trees.scene])
   return (
@@ -541,10 +554,35 @@ function CityDress() {
         <primitive key={`t${index}`} object={clones.trees[index]} position={[x, 0.55, z]} scale={scale} />
       ))}
       {clones.fences.map((fence, index) => {
-        const side = index < 5 ? -1 : 1
-        const z = -6 + (index % 5) * 3.1
-        return <primitive key={`f${index}`} object={fence} position={[side * 7.4, 0.72, z]} rotation={[0, side > 0 ? Math.PI / 2 : -Math.PI / 2, 0]} scale={2.4} />
+        const alongSouth = index < 4
+        const x = alongSouth ? -4.6 + index * 3.1 : (index % 2 === 0 ? -6.6 : 6.6)
+        const z = alongSouth ? 7.15 : -2 + (index - 4) * 2.4
+        return <primitive key={`f${index}`} object={fence} position={[x, 0.68, z]} rotation={[0, alongSouth ? 0 : Math.PI / 2, 0]} scale={1.7} />
       })}
+      {LOW.map(([x, z, w, d, h, color], index) => (
+        <group key={`low${index}`} position={[x, 0.56, z]}>
+          <mesh position={[0, h / 2, 0]} raycast={() => undefined} castShadow>
+            <boxGeometry args={[w, h, d]} />
+            <meshStandardMaterial color={color} roughness={0.86} />
+          </mesh>
+          <mesh position={[0, h + 0.04, 0]} raycast={() => undefined}>
+            <boxGeometry args={[w + 0.08, 0.08, d + 0.08]} />
+            <meshStandardMaterial color="#141c22" roughness={0.7} />
+          </mesh>
+        </group>
+      ))}
+      {[[-1.15, 7.35], [2.55, 7.15], [6.15, 3.7]].map(([x, z], index) => (
+        <group key={`car${index}`} position={[x, 0.62, z]}>
+          <mesh raycast={() => undefined}>
+            <boxGeometry args={[0.55, 0.28, 1.15]} />
+            <meshStandardMaterial color={index === 1 ? '#24323a' : '#1a242c'} roughness={0.55} metalness={0.2} />
+          </mesh>
+          <mesh position={[0, 0.16, -0.05]} raycast={() => undefined}>
+            <boxGeometry args={[0.48, 0.16, 0.55]} />
+            <meshStandardMaterial color="#12181e" roughness={0.4} />
+          </mesh>
+        </group>
+      ))}
       {SKYLINE.map(([x, z, w, d, h], index) => (
         <mesh key={`s${index}`} position={[x, 0.5 + h / 2, z]} material={windows} raycast={() => undefined}>
           <boxGeometry args={[w, h, d]} />
@@ -561,9 +599,9 @@ function CityDress() {
         <planeGeometry args={[2.8, 16]} />
         <meshStandardMaterial color="#2a3130" roughness={0.92} />
       </mesh>
-      <mesh position={[0, 0.58, 6.8]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow raycast={() => undefined}>
-        <planeGeometry args={[18, 3.2]} />
-        <meshStandardMaterial color="#34302c" roughness={0.9} />
+      <mesh position={[0, 0.58, 6.9]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow raycast={() => undefined}>
+        <planeGeometry args={[20, 4.4]} />
+        <meshStandardMaterial color="#12181c" roughness={0.95} />
       </mesh>
       <mesh position={[0, 0.58, -7.1]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow raycast={() => undefined}>
         <planeGeometry args={[18, 2.6]} />
@@ -761,7 +799,7 @@ function Lights() {
   return (
     <>
       <color attach="background" args={[night ? '#070b10' : '#121820']} />
-      <fog attach="fog" args={[night ? '#070b10' : '#121820', night ? 24 : 28, night ? 46 : 52]} />
+      <fog attach="fog" args={[night ? '#070b10' : '#121820', night ? 22 : 26, night ? 40 : 50]} />
       <ambientLight intensity={night ? 0.22 : 0.34} color="#c5d2df" />
       <hemisphereLight args={['#9fb4c8', '#121814', night ? 0.38 : 0.5]} />
       <directionalLight
