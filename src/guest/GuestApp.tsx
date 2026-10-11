@@ -138,7 +138,7 @@ function Title() {
         <p className="cg-kicker">Endless nights · one generator</p>
         <h1>Afterlight<br />District</h1>
         <p className="cg-lede">Keep the last block lit. Rescue a neighbor, arm the street, and hold the dark.</p>
-        <button className="cg-primary" onClick={() => { unlockAudio(); playFromTitle() }}>Restore the light</button>
+        <button className="cg-primary" onClick={() => { unlockAudio(); playFromTitle() }}>{world.hasSavedRun ? 'Continue' : 'Play'}</button>
         {!world.tutorialDone && <button className="cg-ghost" onClick={() => { unlockAudio(); skipTutorial() }}>Skip tutorial</button>}
         {world.bestNight > 0 && <p className="cg-meta">Best night {world.bestNight} · Cache {world.banked} scrap</p>}
         <p className="cg-keys">Mouse fires the relays · 1 overload · 2 repair · E interact</p>
@@ -288,6 +288,8 @@ export default function GuestApp() {
     }
     frame = requestAnimationFrame(loop)
     const onKey = (event: KeyboardEvent) => {
+      // Let focused DOM buttons own Enter/Space; do not also trigger a world action.
+      if ((event.code === 'Enter' || event.code === 'Space') && event.target instanceof HTMLElement && event.target.closest('button')) return
       if (event.repeat && event.code !== 'Space') return
       if (event.code === 'KeyM') { unlockAudio(); toggleMute(); return }
       if (event.code === 'Digit1') { triggerOverdrive(); return }

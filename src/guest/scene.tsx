@@ -7,7 +7,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
-import { enemyPosition, fireAt, interact, overdriveActive, step, subscribe, world } from './world'
+import { advanceFrame, enemyPosition, fireAt, interact, overdriveActive, subscribe, world } from './world'
 
 const MODEL = {
   lin: './models/people__afterlightLin.glb',
@@ -763,7 +763,12 @@ function District() {
       <Floats />
       {ping === 'house' && <Html position={[-3.24, 2.25, -3.5]} center zIndexRange={[2, 0]}><span className="cg-ping" /></Html>}
       {ping === 'bench' && <Html position={[-2.2, 1.7, 0.15]} center zIndexRange={[2, 0]}><span className="cg-ping cg-ping--teal" /></Html>}
-      {ping === 'barricade' && <Html position={[0, 1.55, 3.4]} center zIndexRange={[2, 0]}><span className="cg-ping cg-ping--danger" /></Html>}
+      {ping === 'barricade' && <Html position={[0, 1.55, 3.4]} center zIndexRange={[2, 0]}>
+        <button className="cg-repair-target" onPointerDown={event => { event.stopPropagation(); interact('barricade') }}
+          onClick={() => interact('barricade')}>
+          <b>Repair south barricade</b><small>10 scrap · click or press E</small>
+        </button>
+      </Html>}
       {world.phase === 'rescue' && <Html position={[-3.15, 2.05, -2.7]} center zIndexRange={[2, 0]}><span className="cg-speech">Anyone there? The door is jammed!</span></Html>}
     </group>
   )
@@ -852,7 +857,7 @@ function Pipeline() {
 
 function Runner() {
   useFrame((_, delta) => {
-    step(Math.min(0.1, delta))
+    advanceFrame(delta)
   })
   return null
 }

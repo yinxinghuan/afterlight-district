@@ -149,6 +149,7 @@ export const world = {
   hold: false,
   demoAcc: 0,
   preview: false,
+  hasSavedRun: false,
 }
 
 type NightSnap = {
@@ -305,6 +306,8 @@ function applyMetaToFresh() {
 }
 
 function blankRun() {
+  pendingRun = null
+  world.hasSavedRun = false
   world.day = 1
   world.scrap = 22
   world.morale = 72
@@ -345,6 +348,22 @@ function blankRun() {
 }
 
 export function playFromTitle() {
+  if (pendingRun) {
+    const run = pendingRun
+    blankRun()
+    Object.assign(world, run)
+    world.ranks = fillRanks(run.ranks)
+    world.enemies = (run.enemies ?? []).map(enemy => ({ ...enemy, weave: enemy.weave ?? 0, marked: !!enemy.marked }))
+    world.event = run.event ?? 'none'
+    world.eventDone = run.eventDone ?? world.event === 'none'
+    world.nightDuration = nightLength(world.day)
+    if (world.phase === 'night') nightSnap = {
+      day: world.day, power: world.power, scrap: world.scrap, morale: world.morale,
+      core: world.core, barricade: world.barricade, barricadeMax: world.barricadeMax, ranks: { ...world.ranks },
+    }
+    emit()
+    return
+  }
   blankRun()
   if (world.tutorialDone) {
     world.phase = 'dusk'
@@ -1004,15 +1023,15 @@ export function step(dt: number) {
   for (const beam of world.beams) beam.life -= visual
   world.beams = world.beams.filter(beam => beam.life > 0)
 
-  let sim = dt
+  const sim = dt
+  const stopped = world.hitStop > 0
   if (world.hitStop > 0) {
     world.hitStop = Math.max(0, world.hitStop - dt)
-    sim = 0
   }
   if (sim > 0) {
     tickShow(sim)
     if (world.phase === 'night') {
-      if (world.firing) fireAt(world.aim.x, world.aim.z)
+      if (world.firing && !stopped) fireAt(world.aim.x, world.aim.z)
       if (world.demo) {
         world.demoAcc += sim
         const living = world.enemies.filter(enemy => enemy.hp > 0)
@@ -1079,10 +1098,34 @@ type SaveRun = {
   clinicUsed: boolean
 }
 
+// Entry never advances a saved run until the player chooses Continue.
+let pendingRun: SaveRun | null = null
+
+export function advanceFrame(delta: number) {
+  if (!Number.isFinite(delta) || delta <= 0) return
+  // Integrate slow frames in small steps; bound suspended-tab catch-up work.
+  let remaining = Math.min(delta, 10)
+  while (remaining > 0.000001) {
+    const dt = Math.min(0.05, remaining)
+    step(dt)
+    remaining -= dt
+  }
+  // Long stalls still repay the countdown debt instead of slowing the clock.
+  const excess = Math.max(0, delta - 10)
+  if (excess > 0) {
+    tickShow(excess)
+    if (world.phase === 'night' && !world.hold) {
+      world.nightTime += excess
+      tickNight(0)
+    }
+    emit()
+  }
+}
+
 export function save() {
   if (world.demo) return
   try {
-    const run: SaveRun | null = world.phase === 'title' ? null : {
+    const run: SaveRun | null = world.phase === 'title' ? pendingRun : {
       phase: world.phase,
       day: world.day,
       power: world.power,
@@ -1124,6 +1167,11 @@ export function save() {
 }
 
 export function load() {
+  world.phase = 'title'
+  world.preview = true
+  world.firing = false
+  pendingRun = null
+  world.hasSavedRun = false
   world.reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   try {
     const raw = localStorage.getItem(SAVE_KEY)
@@ -1146,17 +1194,8 @@ export function load() {
     world.banked = data.banked ?? 0
     world.permanent = fillRanks(data.permanent)
     if (data.run && data.run.phase !== 'title') {
-      blankRun()
-      Object.assign(world, data.run)
-      world.ranks = fillRanks(data.run.ranks)
-      world.enemies = (data.run.enemies ?? []).map(enemy => ({
-        ...enemy,
-        weave: enemy.weave ?? 0,
-        marked: !!enemy.marked,
-      }))
-      world.event = data.run.event ?? 'none'
-      world.eventDone = data.run.eventDone ?? world.event === 'none'
-      world.preview = false
+      pendingRun = data.run
+      world.hasSavedRun = true
     } else {
       world.phase = 'title'
       world.preview = true
