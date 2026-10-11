@@ -1,0 +1,248 @@
+{
+  "skips": [
+    "rescue",
+    "assign",
+    "repair",
+    "rescuing click",
+    "assigning click",
+    "repairing click",
+    "repair Escape"
+  ],
+  "target": {
+    "x": 177.49835205078125,
+    "y": 203.92999267578125,
+    "width": 210,
+    "height": 68
+  },
+  "timing": [
+    {
+      "rate": 1,
+      "seconds": 10.00469999999553,
+      "elapsed": 9,
+      "fps": 59.07223604908334,
+      "a": {
+        "time": 261.20000000298023,
+        "remaining": 24,
+        "saved": 0
+      },
+      "b": {
+        "time": 10265.89999999851,
+        "remaining": 15,
+        "saved": 9.949600000001514
+      },
+      "wall": 8.05990000000596,
+      "sim": 8.049800000004494,
+      "drift": 0.0012531172845146163,
+      "samples": [
+        {
+          "wall": 284.29999999701977,
+          "sim": 0
+        },
+        {
+          "wall": 2144.2999999970198,
+          "sim": 1.8997999999970197
+        },
+        {
+          "wall": 4143.20000000298,
+          "sim": 3.899899999998513
+        },
+        {
+          "wall": 6164.5,
+          "sim": 5.916399999998515
+        },
+        {
+          "wall": 8184.29999999702,
+          "sim": 7.933699999995536
+        },
+        {
+          "wall": 10204.20000000298,
+          "sim": 9.949600000001514
+        }
+      ]
+    },
+    {
+      "rate": 6,
+      "seconds": 10.07890000000596,
+      "elapsed": 10,
+      "fps": 41.67121412056391,
+      "a": {
+        "time": 2086.89999999851,
+        "remaining": 24,
+        "saved": 0
+      },
+      "b": {
+        "time": 12165.80000000447,
+        "remaining": 14,
+        "saved": 8.627000000000004
+      },
+      "wall": 8.039799999997019,
+      "sim": 8.035699999995535,
+      "drift": 0.000509962934586169,
+      "samples": [
+        {
+          "wall": 2162.89999999851,
+          "sim": 0
+        },
+        {
+          "wall": 2534.10000000149,
+          "sim": 0.5913000000044702
+        },
+        {
+          "wall": 4551.80000000447,
+          "sim": 2.598800000004469
+        },
+        {
+          "wall": 6545.39999999851,
+          "sim": 4.601200000002979
+        },
+        {
+          "wall": 8552.10000000149,
+          "sim": 6.605900000005957
+        },
+        {
+          "wall": 10573.89999999851,
+          "sim": 8.627000000000004
+        }
+      ]
+    },
+    {
+      "rate": "2fps",
+      "seconds": 10.005300000004471,
+      "elapsed": 10,
+      "fps": 1.898993533426435,
+      "a": {
+        "time": 1771.5999999940395,
+        "remaining": 24,
+        "saved": 0
+      },
+      "b": {
+        "time": 11776.89999999851,
+        "remaining": 14,
+        "saved": 9.575100000001493
+      },
+      "wall": 8.099700000002981,
+      "sim": 8.104300000004473,
+      "drift": 0.0005679222689100071,
+      "samples": [
+        {
+          "wall": 1793.7999999970198,
+          "sim": 0
+        },
+        {
+          "wall": 2754.2999999970198,
+          "sim": 1.4707999999970205
+        },
+        {
+          "wall": 4774.29999999702,
+          "sim": 3.4952000000029764
+        },
+        {
+          "wall": 6814.5999999940395,
+          "sim": 5.51870000000297
+        },
+        {
+          "wall": 8835,
+          "sim": 7.550100000001474
+        },
+        {
+          "wall": 10854,
+          "sim": 9.575100000001493
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "viewport": [
+        800,
+        450
+      ],
+      "overflow": false,
+      "buttons": [
+        {
+          "text": "",
+          "label": "Mute",
+          "inside": true,
+          "width": 44,
+          "height": 44
+        },
+        {
+          "text": "Play",
+          "label": null,
+          "inside": true,
+          "width": 77.96875,
+          "height": 56
+        },
+        {
+          "text": "Skip tutorial",
+          "label": null,
+          "inside": true,
+          "width": 97.859375,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "viewport": [
+        907,
+        510
+      ],
+      "overflow": false,
+      "buttons": [
+        {
+          "text": "",
+          "label": "Mute",
+          "inside": true,
+          "width": 44,
+          "height": 44
+        },
+        {
+          "text": "Play",
+          "label": null,
+          "inside": true,
+          "width": 77.96875,
+          "height": 56
+        },
+        {
+          "text": "Skip tutorial",
+          "label": null,
+          "inside": true,
+          "width": 97.859375,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "overflow": false,
+      "buttons": [
+        {
+          "text": "",
+          "label": "Mute",
+          "inside": true,
+          "width": 44,
+          "height": 44
+        },
+        {
+          "text": "Play",
+          "label": null,
+          "inside": true,
+          "width": 77.96875,
+          "height": 56
+        },
+        {
+          "text": "Skip tutorial",
+          "label": null,
+          "inside": true,
+          "width": 97.859375,
+          "height": 44
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "saveFrozen": true
+}
