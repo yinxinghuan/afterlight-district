@@ -1,0 +1,30 @@
+Afterlight District guest build — music credits
+
+These tracks are used as looping background music in the CrazyGames guest build only.
+They are not part of the AlterU host build.
+
+1. Empty City
+   Author: yd
+   File: empty-city.ogg
+   Source: https://opengameart.org/content/emptycity-background-music
+   Direct file: https://opengameart.org/sites/default/files/EmptyCity.ogg
+   License: CC0 1.0 Universal (public domain)
+   Use: day, title, dawn, and upgrade screens
+
+2. Dark City
+   Author: cinameng (James Gargette on the OpenGameArt page)
+   File: dark-city.ogg
+   Source: https://opengameart.org/content/dark-city-0
+   Direct file: https://opengameart.org/sites/default/files/darkcity_1.mp3
+   License: CC0 1.0 Universal (public domain)
+   Notes: The committed file is a Vorbis encode of the CC0 MP3, made so the guest download stays smaller. The composition and recording remain the author’s.
+   Use: night defense
+
+Sound effects (shots, hits, UI, rescue, repair, overload, dawn, failure) are original
+synthesized tones generated in the browser by src/guest/audio.ts. No third-party
+sample library is used for SFX.
+
+Fonts (UI only, not audio):
+- Inter, SIL Open Font License 1.1 — https://fonts.google.com/specimen/Inter
+- Chakra Petch, SIL Open Font License 1.1 — https://fonts.google.com/specimen/Chakra+Petch
+  License text: https://openfontlicense.org/open-font-license-official-text/
